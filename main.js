@@ -2,27 +2,34 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
-// Función para obtener fecha y hora local de Venezuela
+// Función para obtener fecha y hora local de Venezuela (UTC-4)
 function obtenerFechaHoraLocal() {
   const ahora = new Date();
   
-  // Formatear como YYYY-MM-DD HH:MM:SS en hora local
-  const año = ahora.getFullYear();
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-  const dia = String(ahora.getDate()).padStart(2, '0');
-  const hora = String(ahora.getHours()).padStart(2, '0');
-  const minuto = String(ahora.getMinutes()).padStart(2, '0');
-  const segundo = String(ahora.getSeconds()).padStart(2, '0');
+  // Convertir a hora de Venezuela (UTC-4)
+  const venezuelaTime = new Date(ahora.toLocaleString("en-US", {timeZone: "America/Caracas"}));
+  
+  // Formatear como YYYY-MM-DD HH:MM:SS en hora de Venezuela
+  const año = venezuelaTime.getFullYear();
+  const mes = String(venezuelaTime.getMonth() + 1).padStart(2, '0');
+  const dia = String(venezuelaTime.getDate()).padStart(2, '0');
+  const hora = String(venezuelaTime.getHours()).padStart(2, '0');
+  const minuto = String(venezuelaTime.getMinutes()).padStart(2, '0');
+  const segundo = String(venezuelaTime.getSeconds()).padStart(2, '0');
   
   return `${año}-${mes}-${dia} ${hora}:${minuto}:${segundo}`;
 }
 
-// Función para obtener solo la fecha local (YYYY-MM-DD)
+// Función para obtener solo la fecha local de Venezuela (YYYY-MM-DD)
 function obtenerFechaLocal() {
   const ahora = new Date();
-  const año = ahora.getFullYear();
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-  const dia = String(ahora.getDate()).padStart(2, '0');
+  
+  // Convertir a hora de Venezuela (UTC-4)
+  const venezuelaTime = new Date(ahora.toLocaleString("en-US", {timeZone: "America/Caracas"}));
+  
+  const año = venezuelaTime.getFullYear();
+  const mes = String(venezuelaTime.getMonth() + 1).padStart(2, '0');
+  const dia = String(venezuelaTime.getDate()).padStart(2, '0');
   
   return `${año}-${mes}-${dia}`;
 }

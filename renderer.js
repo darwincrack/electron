@@ -1,5 +1,4 @@
 // Esperar a que el DOM y electronAPI estén disponibles
-const electronAPI = window.electronAPI;
 
 // Referencias a secciones
 const mainMenu = document.getElementById('mainMenu');
@@ -434,7 +433,7 @@ async function cambiarFiltroIngresos(periodo) {
             <td class="has-text-weight-bold has-text-success">$${parseFloat(mov.cantidad).toFixed(2)}</td>
             <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
             <td>
-              <button class="button is-small is-danger" onclick="eliminarMovimiento(${mov.id}, 'ingreso')">
+              <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="ingreso">
                 <span class="icon is-small">
                   <i class="fas fa-times"></i>
                 </span>
@@ -442,6 +441,12 @@ async function cambiarFiltroIngresos(periodo) {
             </td>
           `;
           tablaIngresosPeriodo.appendChild(tr);
+          
+          // Agregar event listener al botón eliminar
+          const btnEliminar = tr.querySelector('.btn-eliminar');
+          btnEliminar.addEventListener('click', () => {
+            eliminarMovimiento(mov.id, 'ingreso');
+          });
         });
       } else {
         tablaIngresosPeriodo.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay ingresos ${periodo === 'diario' ? 'hoy' : periodo === 'semanal' ? 'esta semana' : 'este mes'}</td></tr>`;
@@ -530,7 +535,7 @@ async function cambiarFiltroEgresos(periodo) {
             <td class="has-text-weight-bold has-text-danger">$${parseFloat(mov.cantidad).toFixed(2)}</td>
             <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
             <td>
-              <button class="button is-small is-danger" onclick="eliminarMovimiento(${mov.id}, 'egreso')">
+              <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="egreso">
                 <span class="icon is-small">
                   <i class="fas fa-times"></i>
                 </span>
@@ -538,6 +543,12 @@ async function cambiarFiltroEgresos(periodo) {
             </td>
           `;
           tablaEgresosPeriodo.appendChild(tr);
+          
+          // Agregar event listener al botón eliminar
+          const btnEliminar = tr.querySelector('.btn-eliminar');
+          btnEliminar.addEventListener('click', () => {
+            eliminarMovimiento(mov.id, 'egreso');
+          });
         });
       } else {
         tablaEgresosPeriodo.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay egresos ${periodo === 'diario' ? 'hoy' : periodo === 'semanal' ? 'esta semana' : 'este mes'}</td></tr>`;
