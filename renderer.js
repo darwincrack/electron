@@ -38,9 +38,21 @@ btnIngreso.addEventListener('click', () => {
           <h2 class="title is-4">Registrar Ingreso</h2>
           <form id="formIngreso">
             <div class="field">
+              <label class="label">Tipo de Pago *</label>
+              <div class="control">
+                <div class="select is-fullwidth">
+                  <select id="tipoPagoIngreso" required>
+                    <option value="">Seleccionar tipo</option>
+                    <option value="efectivo" selected>Efectivo</option>
+                    <option value="pago_movil">Pago Móvil</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="field">
               <label class="label">Cantidad *</label>
               <div class="control">
-                <input class="input" type="number" id="cantidadIngreso" min="0.01" step="0.01" required autofocus>
+                <input class="input" type="number" id="cantidadIngreso" min="0.01" step="0.01" required>
               </div>
             </div>
             <div class="field">
@@ -69,6 +81,23 @@ btnIngreso.addEventListener('click', () => {
           <p class="subtitle is-6 has-text-grey" id="textoPeriodo">Hoy</p>
         </div>
         
+        <!-- Resumen por tipo de pago -->
+        <div class="box">
+          <h3 class="title is-6 has-text-info">Desglose por Tipo de Pago</h3>
+          <div id="resumenTipoPago">
+            <div class="columns is-mobile">
+              <div class="column has-text-centered">
+                <p class="heading">Efectivo</p>
+                <p class="title is-6 has-text-success" id="totalEfectivo">Bs 0.00</p>
+              </div>
+              <div class="column has-text-centered">
+                <p class="heading">Pago Móvil</p>
+                <p class="title is-6 has-text-success" id="totalPagoMovil">Bs 0.00</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <!-- Lista de ingresos -->
         <div class="box">
           <h3 class="title is-5" id="tituloTabla">Ingresos de Hoy</h3>
@@ -78,13 +107,14 @@ btnIngreso.addEventListener('click', () => {
                 <tr>
                   <th>Fecha/Hora</th>
                   <th>Cantidad</th>
+                  <th>Tipo Pago</th>
                   <th>Descripción</th>
                   <th width="80">Acción</th>
                 </tr>
               </thead>
               <tbody id="tablaIngresosPeriodo">
                 <tr>
-                  <td colspan="4" class="has-text-grey">No hay ingresos</td>
+                  <td colspan="5" class="has-text-grey">No hay ingresos</td>
                 </tr>
               </tbody>
             </table>
@@ -95,6 +125,9 @@ btnIngreso.addEventListener('click', () => {
   `;
   viewIngresos.classList.remove('is-hidden');
   document.getElementById('volverMenu1').onclick = volverMenu;
+  
+  // Dar foco al campo de cantidad para mejorar UX
+  document.getElementById('cantidadIngreso').focus();
   
   // Event listeners para filtros
   document.getElementById('filtroDiario').onclick = () => cambiarFiltroIngresos('diario');
@@ -219,22 +252,33 @@ btnLista.addEventListener('click', () => {
         <button class="button is-danger" id="filtroEgresos">Egresos</button>
       </div>
       
+      <!-- Filtros de tipo de pago (solo para ingresos) -->
+      <div id="filtrosTipoPago" class="mb-4">
+        <p class="has-text-centered has-text-weight-bold mb-2">Filtrar por Tipo de Pago:</p>
+        <div class="buttons has-addons is-centered">
+          <button class="button is-info is-selected" id="filtroTodos">Todos</button>
+          <button class="button is-info" id="filtroEfectivo">Efectivo</button>
+          <button class="button is-info" id="filtroPagoMovil">Pago Móvil</button>
+        </div>
+      </div>
+      
       <!-- Tabla de movimientos -->
       <div style="max-height: 400px; overflow-y: auto;">
         <table class="table is-fullwidth is-striped">
-          <thead>
-            <tr>
-              <th>Fecha/Hora</th>
-              <th>Cantidad</th>
-              <th>Descripción</th>
-              <th width="80">Acción</th>
-            </tr>
-          </thead>
-          <tbody id="listaMovimientos">
-            <tr>
-              <td colspan="4" class="has-text-grey">Cargando...</td>
-            </tr>
-          </tbody>
+                        <thead>
+                <tr>
+                  <th>Fecha/Hora</th>
+                  <th>Cantidad</th>
+                  <th>Tipo Pago</th>
+                  <th>Descripción</th>
+                  <th width="80">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="listaMovimientos">
+                <tr>
+                  <td colspan="5" class="has-text-grey">Cargando...</td>
+                </tr>
+              </tbody>
         </table>
       </div>
       
@@ -247,18 +291,58 @@ btnLista.addEventListener('click', () => {
   // Event listeners
   document.getElementById('aplicarFiltroFecha').onclick = () => {
     const tipoActual = document.getElementById('filtroIngresos').classList.contains('is-selected') ? 'ingreso' : 'egreso';
-    cargarListaMovimientos(tipoActual);
+    
+    // Si es ingreso, obtener el filtro de tipo de pago activo
+    let tipoPagoFiltro = 'todos';
+    if (tipoActual === 'ingreso') {
+      if (document.getElementById('filtroEfectivo').classList.contains('is-selected')) {
+        tipoPagoFiltro = 'efectivo';
+      } else if (document.getElementById('filtroPagoMovil').classList.contains('is-selected')) {
+        tipoPagoFiltro = 'pago_movil';
+      }
+    }
+    
+    cargarListaMovimientos(tipoActual, tipoPagoFiltro);
   };
   
   document.getElementById('filtroIngresos').onclick = () => {
     document.getElementById('filtroIngresos').classList.add('is-selected');
     document.getElementById('filtroEgresos').classList.remove('is-selected');
+    // Mostrar filtros de tipo de pago solo para ingresos
+    document.getElementById('filtrosTipoPago').style.display = 'block';
     cargarListaMovimientos('ingreso');
   };
   document.getElementById('filtroEgresos').onclick = () => {
     document.getElementById('filtroEgresos').classList.add('is-selected');
     document.getElementById('filtroIngresos').classList.remove('is-selected');
+    // Ocultar filtros de tipo de pago para egresos
+    document.getElementById('filtrosTipoPago').style.display = 'none';
     cargarListaMovimientos('egreso');
+  };
+  
+  // Event listeners para filtros de tipo de pago
+  document.getElementById('filtroTodos').onclick = () => {
+    document.querySelectorAll('#filtroTodos, #filtroEfectivo, #filtroPagoMovil').forEach(btn => {
+      btn.classList.remove('is-selected');
+    });
+    document.getElementById('filtroTodos').classList.add('is-selected');
+    cargarListaMovimientos('ingreso', 'todos');
+  };
+  
+  document.getElementById('filtroEfectivo').onclick = () => {
+    document.querySelectorAll('#filtroTodos, #filtroEfectivo, #filtroPagoMovil').forEach(btn => {
+      btn.classList.remove('is-selected');
+    });
+    document.getElementById('filtroEfectivo').classList.add('is-selected');
+    cargarListaMovimientos('ingreso', 'efectivo');
+  };
+  
+  document.getElementById('filtroPagoMovil').onclick = () => {
+    document.querySelectorAll('#filtroTodos, #filtroEfectivo, #filtroPagoMovil').forEach(btn => {
+      btn.classList.remove('is-selected');
+    });
+    document.getElementById('filtroPagoMovil').classList.add('is-selected');
+    cargarListaMovimientos('ingreso', 'pago_movil');
   };
   
   // Cargar datos iniciales
@@ -294,6 +378,16 @@ btnGrafico.addEventListener('click', () => {
         </div>
       </div>
       
+      <!-- Filtros de tipo de pago para ingresos -->
+      <div class="mb-4">
+        <p class="has-text-centered has-text-weight-bold mb-2">Filtrar Ingresos por Tipo de Pago:</p>
+        <div class="buttons has-addons is-centered">
+          <button class="button is-primary is-selected" id="graficoTodos">Todos</button>
+          <button class="button is-primary" id="graficoEfectivo">Solo Efectivo</button>
+          <button class="button is-primary" id="graficoPagoMovil">Solo Pago Móvil</button>
+        </div>
+      </div>
+      
       <canvas id="graficoMovimientos" width="600" height="300"></canvas>
     </div>
   `;
@@ -305,6 +399,31 @@ btnGrafico.addEventListener('click', () => {
     cargarGraficoMovimientos();
   };
   
+  // Event listeners para filtros de tipo de pago en gráfico
+  document.getElementById('graficoTodos').onclick = () => {
+    document.querySelectorAll('#graficoTodos, #graficoEfectivo, #graficoPagoMovil').forEach(btn => {
+      btn.classList.remove('is-selected');
+    });
+    document.getElementById('graficoTodos').classList.add('is-selected');
+    cargarGraficoMovimientos('todos');
+  };
+  
+  document.getElementById('graficoEfectivo').onclick = () => {
+    document.querySelectorAll('#graficoTodos, #graficoEfectivo, #graficoPagoMovil').forEach(btn => {
+      btn.classList.remove('is-selected');
+    });
+    document.getElementById('graficoEfectivo').classList.add('is-selected');
+    cargarGraficoMovimientos('efectivo');
+  };
+  
+  document.getElementById('graficoPagoMovil').onclick = () => {
+    document.querySelectorAll('#graficoTodos, #graficoEfectivo, #graficoPagoMovil').forEach(btn => {
+      btn.classList.remove('is-selected');
+    });
+    document.getElementById('graficoPagoMovil').classList.add('is-selected');
+    cargarGraficoMovimientos('pago_movil');
+  };
+  
   cargarGraficoMovimientos();
 });
 
@@ -314,15 +433,22 @@ function registrarIngreso() {
   
   formIngreso.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const tipoPago = document.getElementById('tipoPagoIngreso').value;
     const cantidad = parseFloat(document.getElementById('cantidadIngreso').value);
     const descripcion = document.getElementById('descripcionIngreso').value.trim();
+    
+    if (!tipoPago) {
+      alert('Por favor selecciona un tipo de pago');
+      return;
+    }
     if (!cantidad || cantidad <= 0) return;
     
     try {
       const result = await electronAPI.invoke('guardar-movimiento', {
         tipo: 'ingreso',
         cantidad,
-        descripcion
+        descripcion,
+        tipo_pago: tipoPago
       });
       
       // Mostrar mensaje de éxito
@@ -332,7 +458,7 @@ function registrarIngreso() {
       document.getElementById('cantidadIngreso').focus();
       
       // Agregar la nueva fila a la tabla existente (sin recargar)
-      await agregarFilaIngresoATabla({ id: result.id, tipo: 'ingreso', cantidad, descripcion, fecha: new Date() });
+      await agregarFilaIngresoATabla({ id: result.id, tipo: 'ingreso', cantidad, descripcion, tipo_pago: tipoPago, fecha: new Date() });
       
       setTimeout(() => {
         successIngreso.style.display = 'none';
@@ -379,17 +505,28 @@ function registrarEgreso() {
   });
 }
 
-async function cargarListaMovimientos(tipo = 'ingreso') {
+async function cargarListaMovimientos(tipo = 'ingreso', tipoPagoFiltro = 'todos') {
   try {
     // Obtener rangos de fecha de los inputs
     const fechaDesde = document.getElementById('fechaDesde')?.value;
     const fechaHasta = document.getElementById('fechaHasta')?.value;
     
-    const movimientos = await electronAPI.invoke('obtener-movimientos-rango', {
-      tipo,
-      fechaDesde,
-      fechaHasta
-    });
+    // Si es ingreso y hay filtro de tipo de pago, usar el endpoint filtrado
+    let movimientos;
+    if (tipo === 'ingreso' && tipoPagoFiltro && tipoPagoFiltro !== 'todos') {
+      movimientos = await electronAPI.invoke('obtener-movimientos-rango-tipo-pago', {
+        tipo,
+        fechaDesde,
+        fechaHasta,
+        tipoPago: tipoPagoFiltro
+      });
+    } else {
+      movimientos = await electronAPI.invoke('obtener-movimientos-rango', {
+        tipo,
+        fechaDesde,
+        fechaHasta
+      });
+    }
     
     const listaMovimientos = document.getElementById('listaMovimientos');
     const totalLista = document.getElementById('totalLista');
@@ -409,9 +546,16 @@ async function cargarListaMovimientos(tipo = 'ingreso') {
           minute: '2-digit' 
         });
         
+        // Formatear tipo de pago (solo para ingresos)
+        const tipoPagoTexto = tipo === 'ingreso' && mov.tipo_pago ? 
+          (mov.tipo_pago === 'pago_movil' ? 'Pago Móvil' : 
+           mov.tipo_pago === 'efectivo' ? 'Efectivo' : 'No especificado') :
+          (tipo === 'egreso' ? '<em class="has-text-grey">N/A</em>' : '<em class="has-text-grey">No especificado</em>');
+        
         tr.innerHTML = `
           <td>${fechaTexto}</td>
-                      <td class="has-text-weight-bold ${tipo === 'ingreso' ? 'has-text-success' : 'has-text-danger'}">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
+          <td class="has-text-weight-bold ${tipo === 'ingreso' ? 'has-text-success' : 'has-text-danger'}">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
+          <td>${tipoPagoTexto}</td>
           <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
           <td>
             <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="${tipo}">
@@ -433,19 +577,68 @@ async function cargarListaMovimientos(tipo = 'ingreso') {
       const total = movimientos.reduce((sum, mov) => sum + mov.cantidad, 0);
       totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: Bs Bs ${total.toFixed(2)}`;
     } else {
-      listaMovimientos.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay ${tipo}s en este período</td></tr>`;
+      listaMovimientos.innerHTML = `<tr><td colspan="5" class="has-text-grey">No hay ${tipo}s en este período</td></tr>`;
       totalLista.textContent = 'Total: Bs 0.00';
     }
   } catch (error) {
     console.error('Error al cargar lista de movimientos:', error);
     const listaMovimientos = document.getElementById('listaMovimientos');
     if (listaMovimientos) {
-      listaMovimientos.innerHTML = `<tr><td colspan="4" class="has-text-danger">Error al cargar datos</td></tr>`;
+      listaMovimientos.innerHTML = `<tr><td colspan="5" class="has-text-danger">Error al cargar datos</td></tr>`;
     }
   }
 }
 
-async function cargarGraficoMovimientos() {
+// Función para actualizar resumen por tipo de pago
+async function actualizarResumenTipoPago() {
+  const filtroActivo = document.querySelector('.button.is-success.is-selected');
+  if (filtroActivo) {
+    const periodo = filtroActivo.id.replace('filtro', '').toLowerCase();
+    
+    try {
+      let reporte;
+      switch(periodo) {
+        case 'diario':
+          reporte = await electronAPI.invoke('obtener-reporte-tipo-pago-dia');
+          break;
+        case 'semanal':
+          reporte = await electronAPI.invoke('obtener-reporte-tipo-pago-semana');
+          break;
+        case 'mensual':
+          reporte = await electronAPI.invoke('obtener-reporte-tipo-pago-mes');
+          break;
+      }
+      
+      let totalEfectivo = 0;
+      let totalPagoMovil = 0;
+      
+      if (reporte && reporte.length > 0) {
+        reporte.forEach(item => {
+          if (item.tipo_pago === 'efectivo') {
+            totalEfectivo = item.total;
+          } else if (item.tipo_pago === 'pago_movil') {
+            totalPagoMovil = item.total;
+          }
+        });
+      }
+      
+      const elementoEfectivo = document.getElementById('totalEfectivo');
+      const elementoPagoMovil = document.getElementById('totalPagoMovil');
+      
+      if (elementoEfectivo) {
+        elementoEfectivo.textContent = `Bs ${totalEfectivo.toFixed(2)}`;
+      }
+      if (elementoPagoMovil) {
+        elementoPagoMovil.textContent = `Bs ${totalPagoMovil.toFixed(2)}`;
+      }
+      
+    } catch (error) {
+      console.error('Error al obtener resumen por tipo de pago:', error);
+    }
+  }
+}
+
+async function cargarGraficoMovimientos(tipoPagoFiltro = 'todos') {
   try {
     const ctx = document.getElementById('graficoMovimientos').getContext('2d');
     
@@ -453,10 +646,20 @@ async function cargarGraficoMovimientos() {
     const fechaDesde = document.getElementById('fechaDesdeGrafico')?.value;
     const fechaHasta = document.getElementById('fechaHastaGrafico')?.value;
     
-    const datos = await electronAPI.invoke('obtener-datos-grafico-rango', {
-      fechaDesde,
-      fechaHasta
-    });
+    // Si hay filtro de tipo de pago, usar el endpoint filtrado
+    let datos;
+    if (tipoPagoFiltro && tipoPagoFiltro !== 'todos') {
+      datos = await electronAPI.invoke('obtener-datos-grafico-rango-tipo-pago', {
+        fechaDesde,
+        fechaHasta,
+        tipoPago: tipoPagoFiltro
+      });
+    } else {
+      datos = await electronAPI.invoke('obtener-datos-grafico-rango', {
+        fechaDesde,
+        fechaHasta
+      });
+    }
     
     if (window.graficoMov) window.graficoMov.destroy();
     
@@ -494,7 +697,7 @@ async function cargarGraficoMovimientos() {
           },
           title: {
             display: true,
-            text: `Reporte de ${fechaDesde} a ${fechaHasta}`,
+            text: `Reporte de ${fechaDesde} a ${fechaHasta}${tipoPagoFiltro !== 'todos' ? ` (Ingresos: ${tipoPagoFiltro === 'efectivo' ? 'Efectivo' : 'Pago Móvil'})` : ''}`,
             font: {
               size: 16
             }
@@ -591,9 +794,15 @@ async function cambiarFiltroIngresos(periodo) {
             });
           }
           
+          // Formatear tipo de pago
+          const tipoPagoTexto = mov.tipo_pago === 'pago_movil' ? 'Pago Móvil' : 
+                               mov.tipo_pago === 'efectivo' ? 'Efectivo' : 
+                               '<em class="has-text-grey">No especificado</em>';
+          
           tr.innerHTML = `
             <td>${fechaTexto}</td>
             <td class="has-text-weight-bold has-text-success">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
+            <td>${tipoPagoTexto}</td>
             <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
             <td>
               <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="ingreso">
@@ -612,9 +821,13 @@ async function cambiarFiltroIngresos(periodo) {
           });
         });
       } else {
-        tablaIngresosPeriodo.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay ingresos ${periodo === 'diario' ? 'hoy' : periodo === 'semanal' ? 'esta semana' : 'este mes'}</td></tr>`;
+        tablaIngresosPeriodo.innerHTML = `<tr><td colspan="5" class="has-text-grey">No hay ingresos ${periodo === 'diario' ? 'hoy' : periodo === 'semanal' ? 'esta semana' : 'este mes'}</td></tr>`;
       }
     }
+    
+    // Actualizar resumen por tipo de pago
+    await actualizarResumenTipoPago();
+    
   } catch (error) {
     console.error('Error al cargar ingresos por período:', error);
   }
@@ -773,9 +986,15 @@ async function actualizarTablaIngresos() {
             });
           }
           
+          // Formatear tipo de pago
+          const tipoPagoTexto = mov.tipo_pago === 'pago_movil' ? 'Pago Móvil' : 
+                               mov.tipo_pago === 'efectivo' ? 'Efectivo' : 
+                               '<em class="has-text-grey">No especificado</em>';
+          
           tr.innerHTML = `
             <td>${fechaTexto}</td>
             <td class="has-text-weight-bold has-text-success">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
+            <td>${tipoPagoTexto}</td>
             <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
             <td>
               <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="ingreso">
@@ -794,7 +1013,7 @@ async function actualizarTablaIngresos() {
           });
         });
       } else {
-        tablaIngresosPeriodo.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay ingresos ${periodo === 'diario' ? 'hoy' : periodo === 'semanal' ? 'esta semana' : 'este mes'}</td></tr>`;
+        tablaIngresosPeriodo.innerHTML = `<tr><td colspan="5" class="has-text-grey">No hay ingresos ${periodo === 'diario' ? 'hoy' : periodo === 'semanal' ? 'esta semana' : 'este mes'}</td></tr>`;
       }
     }
   }
@@ -884,7 +1103,7 @@ async function agregarFilaIngresoATabla(movimiento) {
   if (!tablaIngresosPeriodo) return;
   
   // Eliminar fila de "no hay ingresos" si existe
-  const filaVacia = tablaIngresosPeriodo.querySelector('tr td[colspan="4"]');
+  const filaVacia = tablaIngresosPeriodo.querySelector('tr td[colspan="5"]');
   if (filaVacia) {
     filaVacia.closest('tr').remove();
   }
@@ -896,9 +1115,15 @@ async function agregarFilaIngresoATabla(movimiento) {
     minute: '2-digit' 
   });
   
+  // Formatear tipo de pago
+  const tipoPagoTexto = movimiento.tipo_pago === 'pago_movil' ? 'Pago Móvil' : 
+                       movimiento.tipo_pago === 'efectivo' ? 'Efectivo' : 
+                       '<em class="has-text-grey">No especificado</em>';
+  
   tr.innerHTML = `
     <td>${fechaTexto}</td>
     <td class="has-text-weight-bold has-text-success">Bs ${parseFloat(movimiento.cantidad).toFixed(2)}</td>
+    <td>${tipoPagoTexto}</td>
     <td>${movimiento.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
     <td>
       <button class="button is-small is-danger btn-eliminar" data-id="${movimiento.id}" data-tipo="ingreso">
@@ -988,6 +1213,9 @@ async function actualizarSoloTotalIngresos() {
     if (totalPeriodo) {
       totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
     }
+    
+    // Actualizar resumen por tipo de pago
+    await actualizarResumenTipoPago();
   }
 }
 

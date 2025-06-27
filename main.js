@@ -44,11 +44,20 @@ db.exec(`CREATE TABLE IF NOT EXISTS movimientos (
   tipo TEXT NOT NULL,
   cantidad REAL NOT NULL,
   descripcion TEXT,
-  fecha DATETIME DEFAULT (datetime('now', 'localtime'))
+  fecha DATETIME DEFAULT (datetime('now', 'localtime')),
+  tipo_pago TEXT DEFAULT NULL
 )`);
 
+// Agregar columna tipo_pago si no existe (para bases de datos existentes)
+try {
+  db.exec(`ALTER TABLE movimientos ADD COLUMN tipo_pago TEXT DEFAULT NULL`);
+} catch (err) {
+  // La columna ya existe, continuamos
+  console.log('Columna tipo_pago ya existe en la tabla');
+}
+
 // Preparar statements para mejor rendimiento
-const insertMovimiento = db.prepare('INSERT INTO movimientos (tipo, cantidad, descripcion, fecha) VALUES (?, ?, ?, ?)');
+const insertMovimiento = db.prepare('INSERT INTO movimientos (tipo, cantidad, descripcion, fecha, tipo_pago) VALUES (?, ?, ?, ?, ?)');
 const getMovimientos = db.prepare('SELECT * FROM movimientos WHERE tipo = ? ORDER BY fecha DESC LIMIT 50');
 const getMovimientosPorRango = db.prepare('SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) >= ? AND DATE(fecha) <= ? ORDER BY fecha DESC');
 const getDatosGrafico = db.prepare(`SELECT 
@@ -62,6 +71,12 @@ const getDatosGrafico = db.prepare(`SELECT
 const getMovimientosPorDia = db.prepare('SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) = ? ORDER BY fecha DESC');
 const getDatosGraficoRango = db.prepare('SELECT DATE(fecha) as dia, tipo, SUM(cantidad) as total FROM movimientos WHERE DATE(fecha) >= ? AND DATE(fecha) <= ? GROUP BY DATE(fecha), tipo ORDER BY DATE(fecha)');
 const deleteMovimiento = db.prepare('DELETE FROM movimientos WHERE id = ?');
+
+// Preparar statements para reportes por tipo de pago
+const getReporteTipoPagoDia = db.prepare('SELECT tipo_pago, SUM(cantidad) as total FROM movimientos WHERE tipo = ? AND DATE(fecha) = ? GROUP BY tipo_pago');
+const getReporteTipoPagoRango = db.prepare('SELECT tipo_pago, SUM(cantidad) as total FROM movimientos WHERE tipo = ? AND DATE(fecha) >= ? AND DATE(fecha) <= ? GROUP BY tipo_pago');
+const getMovimientosPorRangoYTipoPago = db.prepare('SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) >= ? AND DATE(fecha) <= ? AND tipo_pago = ? ORDER BY fecha DESC');
+const getDatosGraficoRangoTipoPago = db.prepare('SELECT DATE(fecha) as dia, tipo, SUM(cantidad) as total FROM movimientos WHERE DATE(fecha) >= ? AND DATE(fecha) <= ? AND (tipo = ? OR (tipo = ? AND tipo_pago = ?)) GROUP BY DATE(fecha), tipo ORDER BY DATE(fecha)');
 
 const createWindow = () => {
   const win = new BrowserWindow({
@@ -80,15 +95,15 @@ const createWindow = () => {
 // Manejadores IPC
 ipcMain.handle('guardar-movimiento', (event, data) => {
   try {
-    const { tipo, cantidad, descripcion } = data;
+    const { tipo, cantidad, descripcion, tipo_pago } = data;
     
     // Usar fecha y hora local de Venezuela/computadora
     const fechaLocal = obtenerFechaHoraLocal();
     
-    console.log('Guardando con fecha local Venezuela:', fechaLocal);
+    console.log('Guardando con fecha local Venezuela:', fechaLocal, 'Tipo pago:', tipo_pago);
     
-    const result = insertMovimiento.run(tipo, cantidad, descripcion || '', fechaLocal);
-    console.log(`Movimiento guardado: ${tipo} Bs ${cantidad} a las ${fechaLocal} - ID: ${result.lastInsertRowid}`);
+    const result = insertMovimiento.run(tipo, cantidad, descripcion || '', fechaLocal, tipo_pago || null);
+    console.log(`Movimiento guardado: ${tipo} Bs ${cantidad} ${tipo_pago ? `(${tipo_pago})` : ''} a las ${fechaLocal} - ID: ${result.lastInsertRowid}`);
     return { id: result.lastInsertRowid };
   } catch (err) {
     console.error('Error al guardar movimiento:', err);
@@ -311,6 +326,20 @@ ipcMain.handle('obtener-movimientos-rango', (event, { tipo, fechaDesde, fechaHas
   }
 });
 
+// Obtener movimientos por rango de fechas y tipo de pago
+ipcMain.handle('obtener-movimientos-rango-tipo-pago', (event, { tipo, fechaDesde, fechaHasta, tipoPago }) => {
+  try {
+    console.log('Buscando movimientos por rango y tipo de pago:', { tipo, fechaDesde, fechaHasta, tipoPago });
+    
+    const rows = getMovimientosPorRangoYTipoPago.all(tipo, fechaDesde, fechaHasta, tipoPago);
+    console.log(`Movimientos encontrados (${tipo} - ${tipoPago}):`, rows.length);
+    return rows;
+  } catch (err) {
+    console.error('Error al obtener movimientos por rango y tipo de pago:', err);
+    throw err;
+  }
+});
+
 // Obtener datos para gráfico por rango de fechas
 ipcMain.handle('obtener-datos-grafico-rango', (event, { fechaDesde, fechaHasta }) => {
   try {
@@ -349,6 +378,44 @@ ipcMain.handle('obtener-datos-grafico-rango', (event, { fechaDesde, fechaHasta }
   }
 });
 
+// Obtener datos para gráfico por rango de fechas y tipo de pago
+ipcMain.handle('obtener-datos-grafico-rango-tipo-pago', (event, { fechaDesde, fechaHasta, tipoPago }) => {
+  try {
+    console.log('Generando datos de gráfico para rango y tipo de pago:', fechaDesde, 'a', fechaHasta, 'tipo:', tipoPago);
+    
+    const rows = getDatosGraficoRangoTipoPago.all(fechaDesde, fechaHasta, 'egreso', 'ingreso', tipoPago);
+    console.log('Datos de gráfico filtrados obtenidos:', rows);
+    
+    // Generar array de fechas en el rango
+    const fechaInicio = new Date(fechaDesde);
+    const fechaFin = new Date(fechaHasta);
+    const labels = [];
+    const ingresos = [];
+    const egresos = [];
+    
+    // Iterar día por día en el rango
+    for (let fecha = new Date(fechaInicio); fecha <= fechaFin; fecha.setDate(fecha.getDate() + 1)) {
+      const diaStr = fecha.toISOString().split('T')[0];
+      labels.push(fecha.toLocaleDateString('es-ES', { 
+        weekday: 'short', 
+        day: 'numeric',
+        month: 'short' 
+      }));
+      
+      const ingresosDia = rows.find(r => r.dia === diaStr && r.tipo === 'ingreso');
+      const egresosDia = rows.find(r => r.dia === diaStr && r.tipo === 'egreso');
+      
+      ingresos.push(ingresosDia ? ingresosDia.total : 0);
+      egresos.push(egresosDia ? egresosDia.total : 0);
+    }
+    
+    return { labels, ingresos, egresos };
+  } catch (err) {
+    console.error('Error al obtener datos de gráfico filtrados:', err);
+    throw err;
+  }
+});
+
 // Eliminar movimiento
 ipcMain.handle('eliminar-movimiento', (event, id) => {
   try {
@@ -357,6 +424,68 @@ ipcMain.handle('eliminar-movimiento', (event, id) => {
     return { success: true, changes: result.changes };
   } catch (err) {
     console.error('Error al eliminar movimiento:', err);
+    throw err;
+  }
+});
+
+// Obtener reportes por tipo de pago
+ipcMain.handle('obtener-reporte-tipo-pago-dia', (event) => {
+  try {
+    const fechaHoy = obtenerFechaLocal();
+    const rows = getReporteTipoPagoDia.all('ingreso', fechaHoy);
+    console.log('Reporte tipo pago del día:', rows);
+    return rows;
+  } catch (err) {
+    console.error('Error al obtener reporte tipo pago del día:', err);
+    throw err;
+  }
+});
+
+ipcMain.handle('obtener-reporte-tipo-pago-semana', (event) => {
+  try {
+    // Calcular el inicio de la semana (lunes) en Venezuela
+    const hoy = new Date();
+    const horaVenezuela = hoy.toLocaleString("en-US", {timeZone: "America/Caracas"});
+    const fechaVenezuela = new Date(horaVenezuela);
+    
+    const inicioSemana = new Date(fechaVenezuela);
+    const dia = fechaVenezuela.getDay();
+    const diasDesdeInicio = dia === 0 ? 6 : dia - 1;
+    inicioSemana.setDate(fechaVenezuela.getDate() - diasDesdeInicio);
+    
+    const finSemana = new Date(inicioSemana);
+    finSemana.setDate(inicioSemana.getDate() + 6);
+    
+    const inicioSemanaStr = inicioSemana.toISOString().split('T')[0];
+    const finSemanaStr = finSemana.toISOString().split('T')[0];
+    
+    const rows = getReporteTipoPagoRango.all('ingreso', inicioSemanaStr, finSemanaStr);
+    console.log('Reporte tipo pago de la semana:', rows);
+    return rows;
+  } catch (err) {
+    console.error('Error al obtener reporte tipo pago de la semana:', err);
+    throw err;
+  }
+});
+
+ipcMain.handle('obtener-reporte-tipo-pago-mes', (event) => {
+  try {
+    // Usar hora de Venezuela
+    const hoy = new Date();
+    const horaVenezuela = hoy.toLocaleString("en-US", {timeZone: "America/Caracas"});
+    const fechaVenezuela = new Date(horaVenezuela);
+    
+    const inicioMes = new Date(fechaVenezuela.getFullYear(), fechaVenezuela.getMonth(), 1);
+    const finMes = new Date(fechaVenezuela.getFullYear(), fechaVenezuela.getMonth() + 1, 0);
+    
+    const inicioMesStr = inicioMes.toISOString().split('T')[0];
+    const finMesStr = finMes.toISOString().split('T')[0];
+    
+    const rows = getReporteTipoPagoRango.all('ingreso', inicioMesStr, finMesStr);
+    console.log('Reporte tipo pago del mes:', rows);
+    return rows;
+  } catch (err) {
+    console.error('Error al obtener reporte tipo pago del mes:', err);
     throw err;
   }
 });
