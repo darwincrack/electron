@@ -187,21 +187,69 @@ btnEgreso.addEventListener('click', () => {
 // Vista Lista
 btnLista.addEventListener('click', () => {
   ocultarTodo();
+  const fechaHoy = new Date().toISOString().split('T')[0];
+  const fechaInicio = new Date();
+  fechaInicio.setDate(fechaInicio.getDate() - 30); // 30 días atrás por defecto
+  const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
+  
   viewLista.innerHTML = `
     <button class="button is-light volver-btn" id="volverMenu3">← Volver al menú</button>
     <div class="box">
       <h2 class="title is-4">Lista de Movimientos</h2>
+      
+      <!-- Filtros de fecha -->
+      <div class="columns is-mobile mb-4">
+        <div class="column">
+          <label class="label">Desde:</label>
+          <input class="input" type="date" id="fechaDesde" value="${fechaInicioStr}">
+        </div>
+        <div class="column">
+          <label class="label">Hasta:</label>
+          <input class="input" type="date" id="fechaHasta" value="${fechaHoy}">
+        </div>
+        <div class="column is-narrow">
+          <label class="label">&nbsp;</label>
+          <button class="button is-info" id="aplicarFiltroFecha">Aplicar</button>
+        </div>
+      </div>
+      
+      <!-- Filtros de tipo -->
       <div class="buttons has-addons is-centered mb-4">
         <button class="button is-link is-selected" id="filtroIngresos">Ingresos</button>
         <button class="button is-danger" id="filtroEgresos">Egresos</button>
       </div>
-      <ul id="listaMovimientos" style="list-style:none;padding:0;"></ul>
+      
+      <!-- Tabla de movimientos -->
+      <div style="max-height: 400px; overflow-y: auto;">
+        <table class="table is-fullwidth is-striped">
+          <thead>
+            <tr>
+              <th>Fecha/Hora</th>
+              <th>Cantidad</th>
+              <th>Descripción</th>
+              <th width="80">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="listaMovimientos">
+            <tr>
+              <td colspan="4" class="has-text-grey">Cargando...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
       <div class="mt-4 has-text-weight-bold" id="totalLista">Total: $0.00</div>
     </div>
   `;
   viewLista.classList.remove('is-hidden');
   document.getElementById('volverMenu3').onclick = volverMenu;
-  cargarListaMovimientos('ingreso');
+  
+  // Event listeners
+  document.getElementById('aplicarFiltroFecha').onclick = () => {
+    const tipoActual = document.getElementById('filtroIngresos').classList.contains('is-selected') ? 'ingreso' : 'egreso';
+    cargarListaMovimientos(tipoActual);
+  };
+  
   document.getElementById('filtroIngresos').onclick = () => {
     document.getElementById('filtroIngresos').classList.add('is-selected');
     document.getElementById('filtroEgresos').classList.remove('is-selected');
@@ -212,20 +260,51 @@ btnLista.addEventListener('click', () => {
     document.getElementById('filtroIngresos').classList.remove('is-selected');
     cargarListaMovimientos('egreso');
   };
+  
+  // Cargar datos iniciales
+  cargarListaMovimientos('ingreso');
 });
 
 // Vista Gráfico
 btnGrafico.addEventListener('click', () => {
   ocultarTodo();
+  const fechaHoy = new Date().toISOString().split('T')[0];
+  const fechaInicio = new Date();
+  fechaInicio.setDate(fechaInicio.getDate() - 7); // 7 días atrás por defecto
+  const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
+  
   viewGrafico.innerHTML = `
     <button class="button is-light volver-btn" id="volverMenu4">← Volver al menú</button>
     <div class="box">
       <h2 class="title is-4">Gráfico de Ingresos y Egresos</h2>
-      <canvas id="graficoMovimientos" width="320" height="180"></canvas>
+      
+      <!-- Filtros de fecha -->
+      <div class="columns is-mobile mb-4">
+        <div class="column">
+          <label class="label">Desde:</label>
+          <input class="input" type="date" id="fechaDesdeGrafico" value="${fechaInicioStr}">
+        </div>
+        <div class="column">
+          <label class="label">Hasta:</label>
+          <input class="input" type="date" id="fechaHastaGrafico" value="${fechaHoy}">
+        </div>
+        <div class="column is-narrow">
+          <label class="label">&nbsp;</label>
+          <button class="button is-info" id="actualizarGrafico">Actualizar</button>
+        </div>
+      </div>
+      
+      <canvas id="graficoMovimientos" width="600" height="300"></canvas>
     </div>
   `;
   viewGrafico.classList.remove('is-hidden');
   document.getElementById('volverMenu4').onclick = volverMenu;
+  
+  // Event listener para actualizar gráfico
+  document.getElementById('actualizarGrafico').onclick = () => {
+    cargarGraficoMovimientos();
+  };
+  
   cargarGraficoMovimientos();
 });
 
@@ -309,50 +388,142 @@ function registrarEgreso() {
 }
 
 async function cargarListaMovimientos(tipo = 'ingreso') {
-  const { movimientos, total } = await electronAPI.invoke('obtener-movimientos', tipo);
-  const lista = document.getElementById('listaMovimientos');
-  lista.innerHTML = '';
-  if (movimientos.length === 0) {
-    lista.innerHTML = '<li class="has-text-grey">Sin movimientos</li>';
-  } else {
-    movimientos.forEach(mov => {
-      const li = document.createElement('li');
-      li.className = 'mb-2';
-      li.innerHTML = `<span class='has-text-weight-bold'>$${parseFloat(mov.cantidad).toFixed(2)}</span> - <span>${mov.descripcion ? mov.descripcion : '<i>Sin descripción</i>'}</span> <span class='has-text-grey-light' style='font-size:0.9em;'>(${new Date(mov.fecha).toLocaleDateString()})</span>`;
-      lista.appendChild(li);
+  try {
+    // Obtener rangos de fecha de los inputs
+    const fechaDesde = document.getElementById('fechaDesde')?.value;
+    const fechaHasta = document.getElementById('fechaHasta')?.value;
+    
+    const movimientos = await electronAPI.invoke('obtener-movimientos-rango', {
+      tipo,
+      fechaDesde,
+      fechaHasta
     });
+    
+    const listaMovimientos = document.getElementById('listaMovimientos');
+    const totalLista = document.getElementById('totalLista');
+    
+    listaMovimientos.innerHTML = '';
+    
+    if (movimientos && movimientos.length > 0) {
+      movimientos.forEach(mov => {
+        const fecha = new Date(mov.fecha);
+        const tr = document.createElement('tr');
+        
+        const fechaTexto = fecha.toLocaleDateString('es-ES', { 
+          day: '2-digit',
+          month: '2-digit'
+        }) + ' ' + fecha.toLocaleTimeString('es-ES', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+        
+        tr.innerHTML = `
+          <td>${fechaTexto}</td>
+          <td class="has-text-weight-bold ${tipo === 'ingreso' ? 'has-text-success' : 'has-text-danger'}">$${parseFloat(mov.cantidad).toFixed(2)}</td>
+          <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
+          <td>
+            <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="${tipo}">
+              <span class="icon is-small">
+                <i class="fas fa-times"></i>
+              </span>
+            </button>
+          </td>
+        `;
+        listaMovimientos.appendChild(tr);
+        
+        // Agregar event listener al botón eliminar
+        const btnEliminar = tr.querySelector('.btn-eliminar');
+        btnEliminar.addEventListener('click', () => {
+          eliminarMovimiento(mov.id, tipo);
+        });
+      });
+      
+      const total = movimientos.reduce((sum, mov) => sum + mov.cantidad, 0);
+      totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: $${total.toFixed(2)}`;
+    } else {
+      listaMovimientos.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay ${tipo}s en este período</td></tr>`;
+      totalLista.textContent = 'Total: $0.00';
+    }
+  } catch (error) {
+    console.error('Error al cargar lista de movimientos:', error);
+    const listaMovimientos = document.getElementById('listaMovimientos');
+    if (listaMovimientos) {
+      listaMovimientos.innerHTML = `<tr><td colspan="4" class="has-text-danger">Error al cargar datos</td></tr>`;
+    }
   }
-  document.getElementById('totalLista').textContent = `Total: $${parseFloat(total).toFixed(2)}`;
 }
 
 async function cargarGraficoMovimientos() {
-  const ctx = document.getElementById('graficoMovimientos').getContext('2d');
-  const datos = await electronAPI.invoke('obtener-datos-grafico', 7);
-  if (window.graficoMov) window.graficoMov.destroy();
-  window.graficoMov = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: datos.labels,
-      datasets: [
-        {
-          label: 'Ingresos',
-          data: datos.ingresos,
-          backgroundColor: 'rgba(0, 123, 255, 0.6)'
+  try {
+    const ctx = document.getElementById('graficoMovimientos').getContext('2d');
+    
+    // Obtener rangos de fecha de los inputs
+    const fechaDesde = document.getElementById('fechaDesdeGrafico')?.value;
+    const fechaHasta = document.getElementById('fechaHastaGrafico')?.value;
+    
+    const datos = await electronAPI.invoke('obtener-datos-grafico-rango', {
+      fechaDesde,
+      fechaHasta
+    });
+    
+    if (window.graficoMov) window.graficoMov.destroy();
+    
+    window.graficoMov = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: datos.labels,
+        datasets: [
+          {
+            label: 'Ingresos',
+            data: datos.ingresos,
+            backgroundColor: 'rgba(72, 187, 120, 0.7)',
+            borderColor: 'rgba(72, 187, 120, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Egresos',
+            data: datos.egresos,
+            backgroundColor: 'rgba(245, 101, 101, 0.7)',
+            borderColor: 'rgba(245, 101, 101, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { 
+            position: 'top',
+            labels: {
+              font: {
+                size: 14
+              }
+            }
+          },
+          title: {
+            display: true,
+            text: `Reporte de ${fechaDesde} a ${fechaHasta}`,
+            font: {
+              size: 16
+            }
+          }
         },
-        {
-          label: 'Egresos',
-          data: datos.egresos,
-          backgroundColor: 'rgba(220, 53, 69, 0.6)'
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return '$' + value.toFixed(2);
+              }
+            }
+          }
         }
-      ]
-    },
-    options: {
-      responsive: false,
-      plugins: {
-        legend: { position: 'top' }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error('Error al cargar gráfico:', error);
+    alert('Error al cargar el gráfico');
+  }
 }
 
 // Función para cambiar filtro de ingresos
@@ -566,19 +737,28 @@ async function eliminarMovimiento(id, tipo) {
       await electronAPI.invoke('eliminar-movimiento', id);
       console.log('Movimiento eliminado:', id);
       
-      // Actualizar la vista correspondiente
-      if (tipo === 'ingreso') {
+      // Verificar en qué vista estamos y actualizar la correspondiente
+      const vistaIngresos = document.querySelector('#viewIngresos:not(.is-hidden)');
+      const vistaEgresos = document.querySelector('#viewEgresos:not(.is-hidden)');
+      const vistaLista = document.querySelector('#viewLista:not(.is-hidden)');
+      
+      if (vistaIngresos && tipo === 'ingreso') {
+        // Estamos en vista de ingresos
         const filtroActivo = document.querySelector('.button.is-success.is-selected');
         if (filtroActivo) {
           const periodo = filtroActivo.id.replace('filtro', '').toLowerCase();
           cambiarFiltroIngresos(periodo);
         }
-      } else {
+      } else if (vistaEgresos && tipo === 'egreso') {
+        // Estamos en vista de egresos
         const filtroActivo = document.querySelector('.button.is-danger.is-selected');
         if (filtroActivo) {
           const periodo = filtroActivo.id.replace('filtro', '').replace('Egr', '').toLowerCase();
           cambiarFiltroEgresos(periodo);
         }
+      } else if (vistaLista) {
+        // Estamos en lista de movimientos - recargar la lista actual
+        cargarListaMovimientos(tipo);
       }
     } catch (error) {
       console.error('Error al eliminar movimiento:', error);

@@ -345,6 +345,72 @@ ipcMain.handle('obtener-egresos-mes', (event) => {
   });
 });
 
+// Obtener movimientos por rango de fechas
+ipcMain.handle('obtener-movimientos-rango', (event, { tipo, fechaDesde, fechaHasta }) => {
+  return new Promise((resolve, reject) => {
+    console.log('Buscando movimientos por rango:', { tipo, fechaDesde, fechaHasta });
+    
+    db.all(
+      "SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) >= ? AND DATE(fecha) <= ? ORDER BY fecha DESC",
+      [tipo, fechaDesde, fechaHasta],
+      (err, rows) => {
+        if (err) {
+          console.error('Error al obtener movimientos por rango:', err);
+          reject(err);
+        } else {
+          console.log(`Movimientos encontrados (${tipo}):`, rows.length);
+          resolve(rows);
+        }
+      }
+    );
+  });
+});
+
+// Obtener datos para gráfico por rango de fechas
+ipcMain.handle('obtener-datos-grafico-rango', (event, { fechaDesde, fechaHasta }) => {
+  return new Promise((resolve, reject) => {
+    console.log('Generando datos de gráfico para rango:', fechaDesde, 'a', fechaHasta);
+    
+    db.all(
+      "SELECT DATE(fecha) as dia, tipo, SUM(cantidad) as total FROM movimientos WHERE DATE(fecha) >= ? AND DATE(fecha) <= ? GROUP BY DATE(fecha), tipo ORDER BY DATE(fecha)",
+      [fechaDesde, fechaHasta],
+      (err, rows) => {
+        if (err) {
+          console.error('Error al obtener datos de gráfico:', err);
+          reject(err);
+        } else {
+          console.log('Datos de gráfico obtenidos:', rows);
+          
+          // Generar array de fechas en el rango
+          const fechaInicio = new Date(fechaDesde);
+          const fechaFin = new Date(fechaHasta);
+          const labels = [];
+          const ingresos = [];
+          const egresos = [];
+          
+          // Iterar día por día en el rango
+          for (let fecha = new Date(fechaInicio); fecha <= fechaFin; fecha.setDate(fecha.getDate() + 1)) {
+            const diaStr = fecha.toISOString().split('T')[0];
+            labels.push(fecha.toLocaleDateString('es-ES', { 
+              weekday: 'short', 
+              day: 'numeric',
+              month: 'short' 
+            }));
+            
+            const ingresosDia = rows.find(r => r.dia === diaStr && r.tipo === 'ingreso');
+            const egresosDia = rows.find(r => r.dia === diaStr && r.tipo === 'egreso');
+            
+            ingresos.push(ingresosDia ? ingresosDia.total : 0);
+            egresos.push(egresosDia ? egresosDia.total : 0);
+          }
+          
+          resolve({ labels, ingresos, egresos });
+        }
+      }
+    );
+  });
+});
+
 // Eliminar movimiento
 ipcMain.handle('eliminar-movimiento', (event, id) => {
   return new Promise((resolve, reject) => {
