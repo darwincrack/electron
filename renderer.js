@@ -65,7 +65,7 @@ btnIngreso.addEventListener('click', () => {
             <button class="button is-small is-success" id="filtroSemanal">Semanal</button>
             <button class="button is-small is-success" id="filtroMensual">Mensual</button>
           </div>
-          <p class="title is-3 has-text-success" id="totalPeriodo">$0.00</p>
+          <p class="title is-3 has-text-success" id="totalPeriodo">Bs 0.00</p>
           <p class="subtitle is-6 has-text-grey" id="textoPeriodo">Hoy</p>
         </div>
         
@@ -144,7 +144,7 @@ btnEgreso.addEventListener('click', () => {
             <button class="button is-small is-danger" id="filtroSemanalEgr">Semanal</button>
             <button class="button is-small is-danger" id="filtroMensualEgr">Mensual</button>
           </div>
-          <p class="title is-3 has-text-danger" id="totalPeriodoEgresos">$0.00</p>
+          <p class="title is-3 has-text-danger" id="totalPeriodoEgresos">Bs 0.00</p>
           <p class="subtitle is-6 has-text-grey" id="textoPeriodoEgresos">Hoy</p>
         </div>
         
@@ -238,7 +238,7 @@ btnLista.addEventListener('click', () => {
         </table>
       </div>
       
-      <div class="mt-4 has-text-weight-bold" id="totalLista">Total: $0.00</div>
+      <div class="mt-4 has-text-weight-bold" id="totalLista">Total: Bs 0.00</div>
     </div>
   `;
   viewLista.classList.remove('is-hidden');
@@ -411,7 +411,7 @@ async function cargarListaMovimientos(tipo = 'ingreso') {
         
         tr.innerHTML = `
           <td>${fechaTexto}</td>
-          <td class="has-text-weight-bold ${tipo === 'ingreso' ? 'has-text-success' : 'has-text-danger'}">$${parseFloat(mov.cantidad).toFixed(2)}</td>
+                      <td class="has-text-weight-bold ${tipo === 'ingreso' ? 'has-text-success' : 'has-text-danger'}">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
           <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
           <td>
             <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="${tipo}">
@@ -431,10 +431,10 @@ async function cargarListaMovimientos(tipo = 'ingreso') {
       });
       
       const total = movimientos.reduce((sum, mov) => sum + mov.cantidad, 0);
-      totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: $${total.toFixed(2)}`;
+      totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: Bs Bs ${total.toFixed(2)}`;
     } else {
       listaMovimientos.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay ${tipo}s en este período</td></tr>`;
-      totalLista.textContent = 'Total: $0.00';
+      totalLista.textContent = 'Total: Bs 0.00';
     }
   } catch (error) {
     console.error('Error al cargar lista de movimientos:', error);
@@ -505,7 +505,7 @@ async function cargarGraficoMovimientos() {
             beginAtZero: true,
             ticks: {
               callback: function(value) {
-                return '$' + value.toFixed(2);
+                return 'Bs ' + value.toFixed(2);
               }
             }
           }
@@ -557,7 +557,7 @@ async function cambiarFiltroIngresos(periodo) {
     const tablaIngresosPeriodo = document.getElementById('tablaIngresosPeriodo');
     
     if (totalPeriodo) {
-      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+      totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
     }
     
     if (textoPeriodoEl) {
@@ -593,7 +593,7 @@ async function cambiarFiltroIngresos(periodo) {
           
           tr.innerHTML = `
             <td>${fechaTexto}</td>
-            <td class="has-text-weight-bold has-text-success">$${parseFloat(mov.cantidad).toFixed(2)}</td>
+            <td class="has-text-weight-bold has-text-success">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
             <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
             <td>
               <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="ingreso">
@@ -659,7 +659,7 @@ async function cambiarFiltroEgresos(periodo) {
     const tablaEgresosPeriodo = document.getElementById('tablaEgresosPeriodo');
     
     if (totalPeriodo) {
-      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+      totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
     }
     
     if (textoPeriodoEl) {
@@ -695,7 +695,7 @@ async function cambiarFiltroEgresos(periodo) {
           
           tr.innerHTML = `
             <td>${fechaTexto}</td>
-            <td class="has-text-weight-bold has-text-danger">$${parseFloat(mov.cantidad).toFixed(2)}</td>
+            <td class="has-text-weight-bold has-text-danger">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
             <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
             <td>
               <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="egreso">
@@ -747,7 +747,7 @@ async function actualizarTablaIngresos() {
     const tablaIngresosPeriodo = document.getElementById('tablaIngresosPeriodo');
     
     if (totalPeriodo) {
-      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+      totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
     }
     
     if (tablaIngresosPeriodo) {
@@ -775,7 +775,7 @@ async function actualizarTablaIngresos() {
           
           tr.innerHTML = `
             <td>${fechaTexto}</td>
-            <td class="has-text-weight-bold has-text-success">$${parseFloat(mov.cantidad).toFixed(2)}</td>
+            <td class="has-text-weight-bold has-text-success">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
             <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
             <td>
               <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="ingreso">
@@ -825,7 +825,7 @@ async function actualizarTablaEgresos() {
     const tablaEgresosPeriodo = document.getElementById('tablaEgresosPeriodo');
     
     if (totalPeriodo) {
-      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+      totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
     }
     
     if (tablaEgresosPeriodo) {
@@ -853,7 +853,7 @@ async function actualizarTablaEgresos() {
           
           tr.innerHTML = `
             <td>${fechaTexto}</td>
-            <td class="has-text-weight-bold has-text-danger">$${parseFloat(mov.cantidad).toFixed(2)}</td>
+            <td class="has-text-weight-bold has-text-danger">Bs ${parseFloat(mov.cantidad).toFixed(2)}</td>
             <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
             <td>
               <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="egreso">
@@ -898,7 +898,7 @@ async function agregarFilaIngresoATabla(movimiento) {
   
   tr.innerHTML = `
     <td>${fechaTexto}</td>
-    <td class="has-text-weight-bold has-text-success">$${parseFloat(movimiento.cantidad).toFixed(2)}</td>
+    <td class="has-text-weight-bold has-text-success">Bs ${parseFloat(movimiento.cantidad).toFixed(2)}</td>
     <td>${movimiento.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
     <td>
       <button class="button is-small is-danger btn-eliminar" data-id="${movimiento.id}" data-tipo="ingreso">
@@ -941,7 +941,7 @@ async function agregarFilaEgresoATabla(movimiento) {
   
   tr.innerHTML = `
     <td>${fechaTexto}</td>
-    <td class="has-text-weight-bold has-text-danger">$${parseFloat(movimiento.cantidad).toFixed(2)}</td>
+    <td class="has-text-weight-bold has-text-danger">Bs ${parseFloat(movimiento.cantidad).toFixed(2)}</td>
     <td>${movimiento.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
     <td>
       <button class="button is-small is-danger btn-eliminar" data-id="${movimiento.id}" data-tipo="egreso">
@@ -986,7 +986,7 @@ async function actualizarSoloTotalIngresos() {
     
     const totalPeriodo = document.getElementById('totalPeriodo');
     if (totalPeriodo) {
-      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+      totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
     }
   }
 }
@@ -1011,7 +1011,7 @@ async function actualizarSoloTotalEgresos() {
     
     const totalPeriodo = document.getElementById('totalPeriodoEgresos');
     if (totalPeriodo) {
-      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+      totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
     }
   }
 }
@@ -1026,7 +1026,7 @@ async function actualizarSoloTotalLista(tipo) {
     const celdaCantidad = fila.querySelector('td:nth-child(2)');
     if (celdaCantidad) {
       const texto = celdaCantidad.textContent;
-      const numero = parseFloat(texto.replace('$', ''));
+      const numero = parseFloat(texto.replace('Bs ', ''));
       if (!isNaN(numero)) {
         total += numero;
       }
@@ -1035,7 +1035,7 @@ async function actualizarSoloTotalLista(tipo) {
   
   const totalLista = document.getElementById('totalLista');
   if (totalLista) {
-    totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: $${total.toFixed(2)}`;
+    totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: Bs ${total.toFixed(2)}`;
   }
 }
 

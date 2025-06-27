@@ -81,7 +81,7 @@ ipcMain.handle('guardar-movimiento', (event, data) => {
           console.error('Error al guardar movimiento:', err);
           reject(err);
         } else {
-          console.log(`Movimiento guardado: ${tipo} $${cantidad} a las ${fechaLocal} - ID: ${this.lastID}`);
+          console.log(`Movimiento guardado: ${tipo} Bs ${cantidad} a las ${fechaLocal} - ID: ${this.lastID}`);
           resolve({ id: this.lastID });
         }
       }
