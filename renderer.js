@@ -378,12 +378,12 @@ async function cambiarFiltroIngresos(periodo) {
       case 'semanal':
         resumen = await electronAPI.invoke('obtener-ingresos-semana');
         titulo = 'Ingresos de la Semana';
-        textoPeriodo = 'Desde el lunes';
+        textoPeriodo = resumen.rangoFechas || 'Desde el lunes';
         break;
       case 'mensual':
         resumen = await electronAPI.invoke('obtener-ingresos-mes');
         titulo = 'Ingresos del Mes';
-        textoPeriodo = 'Este mes';
+        textoPeriodo = resumen.rangoFechas || 'Este mes';
         break;
     }
     
@@ -480,12 +480,12 @@ async function cambiarFiltroEgresos(periodo) {
       case 'semanal':
         resumen = await electronAPI.invoke('obtener-egresos-semana');
         titulo = 'Egresos de la Semana';
-        textoPeriodo = 'Desde el lunes';
+        textoPeriodo = resumen.rangoFechas || 'Desde el lunes';
         break;
       case 'mensual':
         resumen = await electronAPI.invoke('obtener-egresos-mes');
         titulo = 'Egresos del Mes';
-        textoPeriodo = 'Este mes';
+        textoPeriodo = resumen.rangoFechas || 'Este mes';
         break;
     }
     

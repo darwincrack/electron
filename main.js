@@ -158,22 +158,36 @@ ipcMain.handle('obtener-datos-grafico', (event, dias) => {
 // Obtener ingresos de la semana (desde el lunes)
 ipcMain.handle('obtener-ingresos-semana', (event) => {
   return new Promise((resolve, reject) => {
-    // Calcular el inicio de la semana (lunes)
+    // Calcular el inicio de la semana (lunes) en Venezuela
     const hoy = new Date();
-    const inicioSemana = new Date(hoy);
-    const dia = hoy.getDay();
+    const horaVenezuela = hoy.toLocaleString("en-US", {timeZone: "America/Caracas"});
+    const fechaVenezuela = new Date(horaVenezuela);
+    
+    const inicioSemana = new Date(fechaVenezuela);
+    const dia = fechaVenezuela.getDay();
     const diasDesdeInicio = dia === 0 ? 6 : dia - 1; // Si es domingo (0), son 6 días desde el lunes
-    inicioSemana.setDate(hoy.getDate() - diasDesdeInicio);
-    inicioSemana.setHours(0, 0, 0, 0);
+    inicioSemana.setDate(fechaVenezuela.getDate() - diasDesdeInicio);
+    
+    // Calcular el fin de semana (domingo)
+    const finSemana = new Date(inicioSemana);
+    finSemana.setDate(inicioSemana.getDate() + 6); // Agregar 6 días para llegar al domingo
+    
+    const inicioSemanaStr = inicioSemana.toISOString().split('T')[0]; // YYYY-MM-DD
+    const finSemanaStr = finSemana.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    console.log('Buscando ingresos de la semana (Venezuela):', inicioSemanaStr, 'a', finSemanaStr);
     
     db.all(
-      'SELECT SUM(cantidad) as total FROM movimientos WHERE tipo = ? AND fecha >= ?',
-      ['ingreso', inicioSemana.toISOString()],
+      "SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) >= ? AND DATE(fecha) <= ? ORDER BY fecha DESC",
+      ['ingreso', inicioSemanaStr, finSemanaStr],
       (err, rows) => {
         if (err) {
           reject(err);
         } else {
-          resolve({ total: rows[0]?.total || 0 });
+          console.log('Ingresos encontrados de la semana:', rows);
+          const total = rows.reduce((sum, mov) => sum + mov.cantidad, 0);
+          const rangoFechas = `${inicioSemana.toLocaleDateString('es-ES')} - ${finSemana.toLocaleDateString('es-ES')}`;
+          resolve({ movimientos: rows, total, rangoFechas });
         }
       }
     );
@@ -206,19 +220,30 @@ ipcMain.handle('obtener-ingresos-dia', (event) => {
 // Obtener ingresos del mes actual
 ipcMain.handle('obtener-ingresos-mes', (event) => {
   return new Promise((resolve, reject) => {
+    // Usar hora de Venezuela
     const hoy = new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    inicioMes.setHours(0, 0, 0, 0);
+    const horaVenezuela = hoy.toLocaleString("en-US", {timeZone: "America/Caracas"});
+    const fechaVenezuela = new Date(horaVenezuela);
+    
+    const inicioMes = new Date(fechaVenezuela.getFullYear(), fechaVenezuela.getMonth(), 1);
+    const finMes = new Date(fechaVenezuela.getFullYear(), fechaVenezuela.getMonth() + 1, 0);
+    
+    const inicioMesStr = inicioMes.toISOString().split('T')[0];
+    const finMesStr = finMes.toISOString().split('T')[0];
+    
+    console.log('Buscando ingresos del mes (Venezuela):', inicioMesStr, 'a', finMesStr);
     
     db.all(
-      'SELECT * FROM movimientos WHERE tipo = ? AND fecha >= ? ORDER BY fecha DESC',
-      ['ingreso', inicioMes.toISOString()],
+      "SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) >= ? AND DATE(fecha) <= ? ORDER BY fecha DESC",
+      ['ingreso', inicioMesStr, finMesStr],
       (err, rows) => {
         if (err) {
           reject(err);
         } else {
+          console.log('Ingresos encontrados del mes:', rows);
           const total = rows.reduce((sum, mov) => sum + mov.cantidad, 0);
-          resolve({ movimientos: rows, total });
+          const rangoFechas = `${inicioMes.toLocaleDateString('es-ES')} - ${finMes.toLocaleDateString('es-ES')}`;
+          resolve({ movimientos: rows, total, rangoFechas });
         }
       }
     );
@@ -228,22 +253,36 @@ ipcMain.handle('obtener-ingresos-mes', (event) => {
 // Obtener egresos de la semana (desde el lunes)
 ipcMain.handle('obtener-egresos-semana', (event) => {
   return new Promise((resolve, reject) => {
-    // Calcular el inicio de la semana (lunes)
+    // Calcular el inicio de la semana (lunes) en Venezuela
     const hoy = new Date();
-    const inicioSemana = new Date(hoy);
-    const dia = hoy.getDay();
+    const horaVenezuela = hoy.toLocaleString("en-US", {timeZone: "America/Caracas"});
+    const fechaVenezuela = new Date(horaVenezuela);
+    
+    const inicioSemana = new Date(fechaVenezuela);
+    const dia = fechaVenezuela.getDay();
     const diasDesdeInicio = dia === 0 ? 6 : dia - 1; // Si es domingo (0), son 6 días desde el lunes
-    inicioSemana.setDate(hoy.getDate() - diasDesdeInicio);
-    inicioSemana.setHours(0, 0, 0, 0);
+    inicioSemana.setDate(fechaVenezuela.getDate() - diasDesdeInicio);
+    
+    // Calcular el fin de semana (domingo)
+    const finSemana = new Date(inicioSemana);
+    finSemana.setDate(inicioSemana.getDate() + 6); // Agregar 6 días para llegar al domingo
+    
+    const inicioSemanaStr = inicioSemana.toISOString().split('T')[0]; // YYYY-MM-DD
+    const finSemanaStr = finSemana.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    console.log('Buscando egresos de la semana (Venezuela):', inicioSemanaStr, 'a', finSemanaStr);
     
     db.all(
-      'SELECT SUM(cantidad) as total FROM movimientos WHERE tipo = ? AND fecha >= ?',
-      ['egreso', inicioSemana.toISOString()],
+      "SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) >= ? AND DATE(fecha) <= ? ORDER BY fecha DESC",
+      ['egreso', inicioSemanaStr, finSemanaStr],
       (err, rows) => {
         if (err) {
           reject(err);
         } else {
-          resolve({ total: rows[0]?.total || 0 });
+          console.log('Egresos encontrados de la semana:', rows);
+          const total = rows.reduce((sum, mov) => sum + mov.cantidad, 0);
+          const rangoFechas = `${inicioSemana.toLocaleDateString('es-ES')} - ${finSemana.toLocaleDateString('es-ES')}`;
+          resolve({ movimientos: rows, total, rangoFechas });
         }
       }
     );
@@ -276,19 +315,30 @@ ipcMain.handle('obtener-egresos-dia', (event) => {
 // Obtener egresos del mes actual
 ipcMain.handle('obtener-egresos-mes', (event) => {
   return new Promise((resolve, reject) => {
+    // Usar hora de Venezuela
     const hoy = new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    inicioMes.setHours(0, 0, 0, 0);
+    const horaVenezuela = hoy.toLocaleString("en-US", {timeZone: "America/Caracas"});
+    const fechaVenezuela = new Date(horaVenezuela);
+    
+    const inicioMes = new Date(fechaVenezuela.getFullYear(), fechaVenezuela.getMonth(), 1);
+    const finMes = new Date(fechaVenezuela.getFullYear(), fechaVenezuela.getMonth() + 1, 0);
+    
+    const inicioMesStr = inicioMes.toISOString().split('T')[0];
+    const finMesStr = finMes.toISOString().split('T')[0];
+    
+    console.log('Buscando egresos del mes (Venezuela):', inicioMesStr, 'a', finMesStr);
     
     db.all(
-      'SELECT * FROM movimientos WHERE tipo = ? AND fecha >= ? ORDER BY fecha DESC',
-      ['egreso', inicioMes.toISOString()],
+      "SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) >= ? AND DATE(fecha) <= ? ORDER BY fecha DESC",
+      ['egreso', inicioMesStr, finMesStr],
       (err, rows) => {
         if (err) {
           reject(err);
         } else {
+          console.log('Egresos encontrados del mes:', rows);
           const total = rows.reduce((sum, mov) => sum + mov.cantidad, 0);
-          resolve({ movimientos: rows, total });
+          const rangoFechas = `${inicioMes.toLocaleDateString('es-ES')} - ${finMes.toLocaleDateString('es-ES')}`;
+          resolve({ movimientos: rows, total, rangoFechas });
         }
       }
     );
