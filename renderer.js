@@ -319,7 +319,7 @@ function registrarIngreso() {
     if (!cantidad || cantidad <= 0) return;
     
     try {
-      await electronAPI.invoke('guardar-movimiento', {
+      const result = await electronAPI.invoke('guardar-movimiento', {
         tipo: 'ingreso',
         cantidad,
         descripcion
@@ -331,12 +331,8 @@ function registrarIngreso() {
       formIngreso.reset();
       document.getElementById('cantidadIngreso').focus();
       
-      // Actualizar vista
-      const filtroActivo = document.querySelector('.button.is-success.is-selected');
-      if (filtroActivo) {
-        const periodo = filtroActivo.id.replace('filtro', '').toLowerCase();
-        await cambiarFiltroIngresos(periodo);
-      }
+      // Agregar la nueva fila a la tabla existente (sin recargar)
+      await agregarFilaIngresoATabla({ id: result.id, tipo: 'ingreso', cantidad, descripcion, fecha: new Date() });
       
       setTimeout(() => {
         successIngreso.style.display = 'none';
@@ -358,7 +354,7 @@ function registrarEgreso() {
     if (!cantidad || cantidad <= 0) return;
     
     try {
-      await electronAPI.invoke('guardar-movimiento', {
+      const result = await electronAPI.invoke('guardar-movimiento', {
         tipo: 'egreso',
         cantidad,
         descripcion
@@ -370,12 +366,8 @@ function registrarEgreso() {
       formEgreso.reset();
       document.getElementById('cantidadEgreso').focus();
       
-      // Actualizar vista
-      const filtroActivo = document.querySelector('.button.is-danger.is-selected');
-      if (filtroActivo) {
-        const periodo = filtroActivo.id.replace('filtro', '').replace('Egr', '').toLowerCase();
-        await cambiarFiltroEgresos(periodo);
-      }
+      // Agregar la nueva fila a la tabla existente (sin recargar)  
+      await agregarFilaEgresoATabla({ id: result.id, tipo: 'egreso', cantidad, descripcion, fecha: new Date() });
       
       setTimeout(() => {
         successEgreso.style.display = 'none';
@@ -730,39 +722,395 @@ async function cambiarFiltroEgresos(periodo) {
   }
 }
 
+// Función para actualizar solo la tabla de ingresos (sin tocar inputs)
+async function actualizarTablaIngresos() {
+  const filtroActivo = document.querySelector('.button.is-success.is-selected');
+  if (filtroActivo) {
+    const periodo = filtroActivo.id.replace('filtro', '').toLowerCase();
+    
+    // Obtener datos según el período
+    let resumen;
+    switch(periodo) {
+      case 'diario':
+        resumen = await electronAPI.invoke('obtener-ingresos-dia');
+        break;
+      case 'semanal':
+        resumen = await electronAPI.invoke('obtener-ingresos-semana');
+        break;
+      case 'mensual':
+        resumen = await electronAPI.invoke('obtener-ingresos-mes');
+        break;
+    }
+    
+    // Actualizar solo total y tabla
+    const totalPeriodo = document.getElementById('totalPeriodo');
+    const tablaIngresosPeriodo = document.getElementById('tablaIngresosPeriodo');
+    
+    if (totalPeriodo) {
+      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+    }
+    
+    if (tablaIngresosPeriodo) {
+      tablaIngresosPeriodo.innerHTML = '';
+      if (resumen.movimientos && resumen.movimientos.length > 0) {
+        resumen.movimientos.forEach(mov => {
+          const tr = document.createElement('tr');
+          const fecha = new Date(mov.fecha);
+          
+          let fechaTexto;
+          if (periodo === 'diario') {
+            fechaTexto = fecha.toLocaleTimeString('es-ES', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
+          } else {
+            fechaTexto = fecha.toLocaleDateString('es-ES', { 
+              day: '2-digit',
+              month: '2-digit'
+            }) + ' ' + fecha.toLocaleTimeString('es-ES', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
+          }
+          
+          tr.innerHTML = `
+            <td>${fechaTexto}</td>
+            <td class="has-text-weight-bold has-text-success">$${parseFloat(mov.cantidad).toFixed(2)}</td>
+            <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
+            <td>
+              <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="ingreso">
+                <span class="icon is-small">
+                  <i class="fas fa-times"></i>
+                </span>
+              </button>
+            </td>
+          `;
+          tablaIngresosPeriodo.appendChild(tr);
+          
+          // Agregar event listener al botón eliminar
+          const btnEliminar = tr.querySelector('.btn-eliminar');
+          btnEliminar.addEventListener('click', () => {
+            eliminarMovimiento(mov.id, 'ingreso');
+          });
+        });
+      } else {
+        tablaIngresosPeriodo.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay ingresos ${periodo === 'diario' ? 'hoy' : periodo === 'semanal' ? 'esta semana' : 'este mes'}</td></tr>`;
+      }
+    }
+  }
+}
+
+// Función para actualizar solo la tabla de egresos (sin tocar inputs)
+async function actualizarTablaEgresos() {
+  const filtroActivo = document.querySelector('.button.is-danger.is-selected');
+  if (filtroActivo) {
+    const periodo = filtroActivo.id.replace('filtro', '').replace('Egr', '').toLowerCase();
+    
+    // Obtener datos según el período
+    let resumen;
+    switch(periodo) {
+      case 'diario':
+        resumen = await electronAPI.invoke('obtener-egresos-dia');
+        break;
+      case 'semanal':
+        resumen = await electronAPI.invoke('obtener-egresos-semana');
+        break;
+      case 'mensual':
+        resumen = await electronAPI.invoke('obtener-egresos-mes');
+        break;
+    }
+    
+    // Actualizar solo total y tabla
+    const totalPeriodo = document.getElementById('totalPeriodoEgresos');
+    const tablaEgresosPeriodo = document.getElementById('tablaEgresosPeriodo');
+    
+    if (totalPeriodo) {
+      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+    }
+    
+    if (tablaEgresosPeriodo) {
+      tablaEgresosPeriodo.innerHTML = '';
+      if (resumen.movimientos && resumen.movimientos.length > 0) {
+        resumen.movimientos.forEach(mov => {
+          const tr = document.createElement('tr');
+          const fecha = new Date(mov.fecha);
+          
+          let fechaTexto;
+          if (periodo === 'diario') {
+            fechaTexto = fecha.toLocaleTimeString('es-ES', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
+          } else {
+            fechaTexto = fecha.toLocaleDateString('es-ES', { 
+              day: '2-digit',
+              month: '2-digit'
+            }) + ' ' + fecha.toLocaleTimeString('es-ES', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
+          }
+          
+          tr.innerHTML = `
+            <td>${fechaTexto}</td>
+            <td class="has-text-weight-bold has-text-danger">$${parseFloat(mov.cantidad).toFixed(2)}</td>
+            <td>${mov.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
+            <td>
+              <button class="button is-small is-danger btn-eliminar" data-id="${mov.id}" data-tipo="egreso">
+                <span class="icon is-small">
+                  <i class="fas fa-times"></i>
+                </span>
+              </button>
+            </td>
+          `;
+          tablaEgresosPeriodo.appendChild(tr);
+          
+          // Agregar event listener al botón eliminar
+          const btnEliminar = tr.querySelector('.btn-eliminar');
+          btnEliminar.addEventListener('click', () => {
+            eliminarMovimiento(mov.id, 'egreso');
+          });
+        });
+      } else {
+        tablaEgresosPeriodo.innerHTML = `<tr><td colspan="4" class="has-text-grey">No hay egresos ${periodo === 'diario' ? 'hoy' : periodo === 'semanal' ? 'esta semana' : 'este mes'}</td></tr>`;
+      }
+    }
+  }
+}
+
+// Funciones para agregar filas individuales sin recargar tablas
+async function agregarFilaIngresoATabla(movimiento) {
+  const tablaIngresosPeriodo = document.getElementById('tablaIngresosPeriodo');
+  if (!tablaIngresosPeriodo) return;
+  
+  // Eliminar fila de "no hay ingresos" si existe
+  const filaVacia = tablaIngresosPeriodo.querySelector('tr td[colspan="4"]');
+  if (filaVacia) {
+    filaVacia.closest('tr').remove();
+  }
+  
+  const tr = document.createElement('tr');
+  const fecha = new Date(movimiento.fecha);
+  const fechaTexto = fecha.toLocaleTimeString('es-ES', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+  
+  tr.innerHTML = `
+    <td>${fechaTexto}</td>
+    <td class="has-text-weight-bold has-text-success">$${parseFloat(movimiento.cantidad).toFixed(2)}</td>
+    <td>${movimiento.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
+    <td>
+      <button class="button is-small is-danger btn-eliminar" data-id="${movimiento.id}" data-tipo="ingreso">
+        <span class="icon is-small">
+          <i class="fas fa-times"></i>
+        </span>
+      </button>
+    </td>
+  `;
+  
+  // Insertar al principio (más reciente arriba)
+  tablaIngresosPeriodo.insertBefore(tr, tablaIngresosPeriodo.firstChild);
+  
+  // Agregar event listener al botón eliminar
+  const btnEliminar = tr.querySelector('.btn-eliminar');
+  btnEliminar.addEventListener('click', () => {
+    eliminarMovimiento(movimiento.id, 'ingreso');
+  });
+  
+  // Actualizar solo el total
+  await actualizarSoloTotalIngresos();
+}
+
+async function agregarFilaEgresoATabla(movimiento) {
+  const tablaEgresosPeriodo = document.getElementById('tablaEgresosPeriodo');
+  if (!tablaEgresosPeriodo) return;
+  
+  // Eliminar fila de "no hay egresos" si existe
+  const filaVacia = tablaEgresosPeriodo.querySelector('tr td[colspan="4"]');
+  if (filaVacia) {
+    filaVacia.closest('tr').remove();
+  }
+  
+  const tr = document.createElement('tr');
+  const fecha = new Date(movimiento.fecha);
+  const fechaTexto = fecha.toLocaleTimeString('es-ES', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+  
+  tr.innerHTML = `
+    <td>${fechaTexto}</td>
+    <td class="has-text-weight-bold has-text-danger">$${parseFloat(movimiento.cantidad).toFixed(2)}</td>
+    <td>${movimiento.descripcion || '<em class="has-text-grey">Sin descripción</em>'}</td>
+    <td>
+      <button class="button is-small is-danger btn-eliminar" data-id="${movimiento.id}" data-tipo="egreso">
+        <span class="icon is-small">
+          <i class="fas fa-times"></i>
+        </span>
+      </button>
+    </td>
+  `;
+  
+  // Insertar al principio (más reciente arriba)
+  tablaEgresosPeriodo.insertBefore(tr, tablaEgresosPeriodo.firstChild);
+  
+  // Agregar event listener al botón eliminar
+  const btnEliminar = tr.querySelector('.btn-eliminar');
+  btnEliminar.addEventListener('click', () => {
+    eliminarMovimiento(movimiento.id, 'egreso');
+  });
+  
+  // Actualizar solo el total
+  await actualizarSoloTotalEgresos();
+}
+
+// Funciones para actualizar solo totales (sin tocar tablas ni inputs)
+async function actualizarSoloTotalIngresos() {
+  const filtroActivo = document.querySelector('.button.is-success.is-selected');
+  if (filtroActivo) {
+    const periodo = filtroActivo.id.replace('filtro', '').toLowerCase();
+    
+    let resumen;
+    switch(periodo) {
+      case 'diario':
+        resumen = await electronAPI.invoke('obtener-ingresos-dia');
+        break;
+      case 'semanal':
+        resumen = await electronAPI.invoke('obtener-ingresos-semana');
+        break;
+      case 'mensual':
+        resumen = await electronAPI.invoke('obtener-ingresos-mes');
+        break;
+    }
+    
+    const totalPeriodo = document.getElementById('totalPeriodo');
+    if (totalPeriodo) {
+      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+    }
+  }
+}
+
+async function actualizarSoloTotalEgresos() {
+  const filtroActivo = document.querySelector('.button.is-danger.is-selected');
+  if (filtroActivo) {
+    const periodo = filtroActivo.id.replace('filtro', '').replace('Egr', '').toLowerCase();
+    
+    let resumen;
+    switch(periodo) {
+      case 'diario':
+        resumen = await electronAPI.invoke('obtener-egresos-dia');
+        break;
+      case 'semanal':
+        resumen = await electronAPI.invoke('obtener-egresos-semana');
+        break;
+      case 'mensual':
+        resumen = await electronAPI.invoke('obtener-egresos-mes');
+        break;
+    }
+    
+    const totalPeriodo = document.getElementById('totalPeriodoEgresos');
+    if (totalPeriodo) {
+      totalPeriodo.textContent = `$${parseFloat(resumen.total || 0).toFixed(2)}`;
+    }
+  }
+}
+
+async function actualizarSoloTotalLista(tipo) {
+  // Calcular total de las filas visibles en la tabla
+  const tabla = document.getElementById('listaMovimientos');
+  const filas = tabla.querySelectorAll('tr');
+  let total = 0;
+  
+  filas.forEach(fila => {
+    const celdaCantidad = fila.querySelector('td:nth-child(2)');
+    if (celdaCantidad) {
+      const texto = celdaCantidad.textContent;
+      const numero = parseFloat(texto.replace('$', ''));
+      if (!isNaN(numero)) {
+        total += numero;
+      }
+    }
+  });
+  
+  const totalLista = document.getElementById('totalLista');
+  if (totalLista) {
+    totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: $${total.toFixed(2)}`;
+  }
+}
+
+// Función para mostrar modal de confirmación sin interferir con el foco
+function mostrarModalConfirmacion(mensaje, onConfirm) {
+  // Crear modal dinámicamente
+  const modal = document.createElement('div');
+  modal.className = 'modal is-active';
+  modal.innerHTML = `
+    <div class="modal-background"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">Confirmar eliminación</p>
+      </header>
+      <section class="modal-card-body">
+        <p>${mensaje}</p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="button is-danger" id="confirmarEliminar">Sí, eliminar</button>
+        <button class="button" id="cancelarEliminar">Cancelar</button>
+      </footer>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Event listeners para los botones
+  document.getElementById('confirmarEliminar').onclick = () => {
+    document.body.removeChild(modal);
+    onConfirm();
+  };
+  
+  document.getElementById('cancelarEliminar').onclick = () => {
+    document.body.removeChild(modal);
+  };
+  
+  // Cerrar modal al hacer clic en el fondo
+  modal.querySelector('.modal-background').onclick = () => {
+    document.body.removeChild(modal);
+  };
+}
+
 // Función para eliminar movimiento
 async function eliminarMovimiento(id, tipo) {
-  if (confirm('¿Estás seguro de que quieres eliminar este registro?')) {
+  mostrarModalConfirmacion('¿Estás seguro de que quieres eliminar este registro?', async () => {
     try {
-      await electronAPI.invoke('eliminar-movimiento', id);
-      console.log('Movimiento eliminado:', id);
+      // PRIMERO: Eliminar la fila visual ANTES de la operación del backend
+      const filaAEliminar = document.querySelector(`button[data-id="${id}"]`).closest('tr');
+      if (filaAEliminar) {
+        filaAEliminar.remove();
+        console.log('Fila eliminada del DOM:', id);
+      }
       
-      // Verificar en qué vista estamos y actualizar la correspondiente
+      // SEGUNDO: Eliminar del backend
+      await electronAPI.invoke('eliminar-movimiento', id);
+      console.log('Movimiento eliminado del backend:', id);
+      
+      // TERCERO: Actualizar solo los totales sin tocar las tablas
       const vistaIngresos = document.querySelector('#viewIngresos:not(.is-hidden)');
       const vistaEgresos = document.querySelector('#viewEgresos:not(.is-hidden)');
       const vistaLista = document.querySelector('#viewLista:not(.is-hidden)');
       
       if (vistaIngresos && tipo === 'ingreso') {
-        // Estamos en vista de ingresos
-        const filtroActivo = document.querySelector('.button.is-success.is-selected');
-        if (filtroActivo) {
-          const periodo = filtroActivo.id.replace('filtro', '').toLowerCase();
-          cambiarFiltroIngresos(periodo);
-        }
+        await actualizarSoloTotalIngresos();
       } else if (vistaEgresos && tipo === 'egreso') {
-        // Estamos en vista de egresos
-        const filtroActivo = document.querySelector('.button.is-danger.is-selected');
-        if (filtroActivo) {
-          const periodo = filtroActivo.id.replace('filtro', '').replace('Egr', '').toLowerCase();
-          cambiarFiltroEgresos(periodo);
-        }
+        await actualizarSoloTotalEgresos();
       } else if (vistaLista) {
-        // Estamos en lista de movimientos - recargar la lista actual
-        cargarListaMovimientos(tipo);
+        await actualizarSoloTotalLista(tipo);
       }
+      
     } catch (error) {
       console.error('Error al eliminar movimiento:', error);
       alert('Error al eliminar el registro');
+      // Si hay error, recargar la vista para restaurar consistencia
+      location.reload();
     }
-  }
+  });
 }
