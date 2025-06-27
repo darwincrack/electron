@@ -1,20 +1,76 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' https://cdn.jsdelivr.net"
     />
     <meta
       http-equiv="X-Content-Security-Policy"
       content="default-src 'self'; script-src 'self'"
     />
-    <title>Hello from Electron renderer!</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Ingresos y Egresos</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <style>
+      body {
+        background: #f5f6fa;
+        min-height: 100vh;
+      }
+      .hero.is-primary {
+        background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%);
+      }
+      .main-menu {
+        margin-top: 60px;
+      }
+      .menu-btn {
+        margin-bottom: 1.5rem;
+        font-size: 1.3rem;
+        padding: 2rem 1rem;
+        border-radius: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        transition: transform 0.1s;
+      }
+      .menu-btn:hover {
+        transform: scale(1.04);
+      }
+      .is-hidden {
+        display: none !important;
+      }
+      .volver-btn {
+        margin-bottom: 2rem;
+      }
+    </style>
   </head>
   <body>
-    <h1>Hello from Electron renderer!</h1>
-    <p>👋</p>
+    <section class="hero is-primary">
+      <div class="hero-body">
+        <div class="container">
+          <h1 class="title has-text-centered">Control de Ingresos y Egresos</h1>
+        </div>
+      </div>
+    </section>
+    <section class="section main-menu" id="mainMenu">
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-half">
+            <button class="button is-link is-fullwidth menu-btn" id="btnIngreso">Registrar Ingreso</button>
+            <button class="button is-danger is-fullwidth menu-btn" id="btnEgreso">Registrar Egreso</button>
+            <button class="button is-info is-fullwidth menu-btn" id="btnLista">Ver Lista</button>
+            <button class="button is-primary is-fullwidth menu-btn" id="btnGrafico">Ver Gráfico</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="section is-hidden" id="viewIngresos"></section>
+    <section class="section is-hidden" id="viewEgresos"></section>
+    <section class="section is-hidden" id="viewLista"></section>
+    <section class="section is-hidden" id="viewGrafico"></section>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="renderer.js"></script>
   </body>
 </html>
