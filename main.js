@@ -2,6 +2,31 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
+// Función para obtener fecha y hora local de Venezuela
+function obtenerFechaHoraLocal() {
+  const ahora = new Date();
+  
+  // Formatear como YYYY-MM-DD HH:MM:SS en hora local
+  const año = ahora.getFullYear();
+  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+  const dia = String(ahora.getDate()).padStart(2, '0');
+  const hora = String(ahora.getHours()).padStart(2, '0');
+  const minuto = String(ahora.getMinutes()).padStart(2, '0');
+  const segundo = String(ahora.getSeconds()).padStart(2, '0');
+  
+  return `${año}-${mes}-${dia} ${hora}:${minuto}:${segundo}`;
+}
+
+// Función para obtener solo la fecha local (YYYY-MM-DD)
+function obtenerFechaLocal() {
+  const ahora = new Date();
+  const año = ahora.getFullYear();
+  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+  const dia = String(ahora.getDate()).padStart(2, '0');
+  
+  return `${año}-${mes}-${dia}`;
+}
+
 // Inicializar base de datos
 const dbPath = path.join(__dirname, 'finanzas.db');
 const db = new sqlite3.Database(dbPath);
@@ -13,7 +38,7 @@ db.serialize(() => {
     tipo TEXT NOT NULL,
     cantidad REAL NOT NULL,
     descripcion TEXT,
-    fecha DATETIME DEFAULT CURRENT_TIMESTAMP
+    fecha DATETIME DEFAULT (datetime('now', 'localtime'))
   )`);
 });
 
@@ -32,22 +57,29 @@ const createWindow = () => {
 };
 
 // Manejadores IPC
-ipcMain.on('guardar-movimiento', (event, data) => {
-  const { tipo, cantidad, descripcion } = data;
-  
-  db.run(
-    'INSERT INTO movimientos (tipo, cantidad, descripcion) VALUES (?, ?, ?)',
-    [tipo, cantidad, descripcion || ''],
-    function(err) {
-      if (err) {
-        console.error('Error al guardar movimiento:', err);
-        event.reply('error-movimiento', err.message);
-      } else {
-        console.log(`Movimiento guardado: ${tipo} $${cantidad}`);
-        event.reply('movimiento-guardado', { id: this.lastID });
+ipcMain.handle('guardar-movimiento', (event, data) => {
+  return new Promise((resolve, reject) => {
+    const { tipo, cantidad, descripcion } = data;
+    
+    // Usar fecha y hora local de Venezuela/computadora
+    const fechaLocal = obtenerFechaHoraLocal();
+    
+    console.log('Guardando con fecha local Venezuela:', fechaLocal);
+    
+    db.run(
+      'INSERT INTO movimientos (tipo, cantidad, descripcion, fecha) VALUES (?, ?, ?, ?)',
+      [tipo, cantidad, descripcion || '', fechaLocal],
+      function(err) {
+        if (err) {
+          console.error('Error al guardar movimiento:', err);
+          reject(err);
+        } else {
+          console.log(`Movimiento guardado: ${tipo} $${cantidad} a las ${fechaLocal} - ID: ${this.lastID}`);
+          resolve({ id: this.lastID });
+        }
       }
-    }
-  );
+    );
+  });
 });
 
 ipcMain.handle('obtener-movimientos', (event, tipo) => {
@@ -110,6 +142,165 @@ ipcMain.handle('obtener-datos-grafico', (event, dias) => {
           }
           
           resolve({ labels, ingresos, egresos });
+        }
+      }
+    );
+  });
+});
+
+// Obtener ingresos de la semana (desde el lunes)
+ipcMain.handle('obtener-ingresos-semana', (event) => {
+  return new Promise((resolve, reject) => {
+    // Calcular el inicio de la semana (lunes)
+    const hoy = new Date();
+    const inicioSemana = new Date(hoy);
+    const dia = hoy.getDay();
+    const diasDesdeInicio = dia === 0 ? 6 : dia - 1; // Si es domingo (0), son 6 días desde el lunes
+    inicioSemana.setDate(hoy.getDate() - diasDesdeInicio);
+    inicioSemana.setHours(0, 0, 0, 0);
+    
+    db.all(
+      'SELECT SUM(cantidad) as total FROM movimientos WHERE tipo = ? AND fecha >= ?',
+      ['ingreso', inicioSemana.toISOString()],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ total: rows[0]?.total || 0 });
+        }
+      }
+    );
+  });
+});
+
+// Obtener ingresos del día actual
+ipcMain.handle('obtener-ingresos-dia', (event) => {
+  return new Promise((resolve, reject) => {
+    const fechaHoy = obtenerFechaLocal();
+    
+    console.log('Buscando ingresos del día (Venezuela):', fechaHoy);
+    
+    db.all(
+      "SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) = ? ORDER BY fecha DESC",
+      ['ingreso', fechaHoy],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          console.log('Ingresos encontrados del día:', rows);
+          const total = rows.reduce((sum, mov) => sum + mov.cantidad, 0);
+          resolve({ movimientos: rows, total });
+        }
+      }
+    );
+  });
+});
+
+// Obtener ingresos del mes actual
+ipcMain.handle('obtener-ingresos-mes', (event) => {
+  return new Promise((resolve, reject) => {
+    const hoy = new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    inicioMes.setHours(0, 0, 0, 0);
+    
+    db.all(
+      'SELECT * FROM movimientos WHERE tipo = ? AND fecha >= ? ORDER BY fecha DESC',
+      ['ingreso', inicioMes.toISOString()],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          const total = rows.reduce((sum, mov) => sum + mov.cantidad, 0);
+          resolve({ movimientos: rows, total });
+        }
+      }
+    );
+  });
+});
+
+// Obtener egresos de la semana (desde el lunes)
+ipcMain.handle('obtener-egresos-semana', (event) => {
+  return new Promise((resolve, reject) => {
+    // Calcular el inicio de la semana (lunes)
+    const hoy = new Date();
+    const inicioSemana = new Date(hoy);
+    const dia = hoy.getDay();
+    const diasDesdeInicio = dia === 0 ? 6 : dia - 1; // Si es domingo (0), son 6 días desde el lunes
+    inicioSemana.setDate(hoy.getDate() - diasDesdeInicio);
+    inicioSemana.setHours(0, 0, 0, 0);
+    
+    db.all(
+      'SELECT SUM(cantidad) as total FROM movimientos WHERE tipo = ? AND fecha >= ?',
+      ['egreso', inicioSemana.toISOString()],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ total: rows[0]?.total || 0 });
+        }
+      }
+    );
+  });
+});
+
+// Obtener egresos del día actual
+ipcMain.handle('obtener-egresos-dia', (event) => {
+  return new Promise((resolve, reject) => {
+    const fechaHoy = obtenerFechaLocal();
+    
+    console.log('Buscando egresos del día (Venezuela):', fechaHoy);
+    
+    db.all(
+      "SELECT * FROM movimientos WHERE tipo = ? AND DATE(fecha) = ? ORDER BY fecha DESC",
+      ['egreso', fechaHoy],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          console.log('Egresos encontrados del día:', rows);
+          const total = rows.reduce((sum, mov) => sum + mov.cantidad, 0);
+          resolve({ movimientos: rows, total });
+        }
+      }
+    );
+  });
+});
+
+// Obtener egresos del mes actual
+ipcMain.handle('obtener-egresos-mes', (event) => {
+  return new Promise((resolve, reject) => {
+    const hoy = new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    inicioMes.setHours(0, 0, 0, 0);
+    
+    db.all(
+      'SELECT * FROM movimientos WHERE tipo = ? AND fecha >= ? ORDER BY fecha DESC',
+      ['egreso', inicioMes.toISOString()],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          const total = rows.reduce((sum, mov) => sum + mov.cantidad, 0);
+          resolve({ movimientos: rows, total });
+        }
+      }
+    );
+  });
+});
+
+// Eliminar movimiento
+ipcMain.handle('eliminar-movimiento', (event, id) => {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'DELETE FROM movimientos WHERE id = ?',
+      [id],
+      function(err) {
+        if (err) {
+          console.error('Error al eliminar movimiento:', err);
+          reject(err);
+        } else {
+          console.log(`Movimiento eliminado: ID ${id}, cambios: ${this.changes}`);
+          resolve({ success: true, changes: this.changes });
         }
       }
     );
