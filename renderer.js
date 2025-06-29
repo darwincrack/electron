@@ -62,6 +62,7 @@ const btnIngreso = document.getElementById('btnIngreso');
 const btnEgreso = document.getElementById('btnEgreso');
 const btnLista = document.getElementById('btnLista');
 const btnGrafico = document.getElementById('btnGrafico');
+const btnMostrarRutaDB = document.getElementById('btnMostrarRutaDB');
 
 function ocultarTodo() {
   mainMenu.classList.add('is-hidden');
@@ -1485,3 +1486,61 @@ async function eliminarMovimiento(id, tipo) {
     }
   });
 }
+
+// Funcionalidad para mostrar información de la base de datos
+btnMostrarRutaDB.addEventListener('click', async () => {
+  const infoBaseDatos = document.getElementById('infoBaseDatos');
+  const rutaCompletaDB = document.getElementById('rutaCompletaDB');
+  const nombreArchivoDB = document.getElementById('nombreArchivoDB');
+  const modoEjecucion = document.getElementById('modoEjecucion');
+  const notaProduccion = document.getElementById('notaProduccion');
+  const notaDesarrollo = document.getElementById('notaDesarrollo');
+  
+  if (infoBaseDatos.classList.contains('is-hidden')) {
+    // Mostrar información y cargar datos
+    try {
+      const infoDb = await electronAPI.invoke('obtener-ruta-base-datos');
+      rutaCompletaDB.textContent = infoDb.rutaCompleta;
+      nombreArchivoDB.textContent = infoDb.nombreArchivo;
+      
+      // Configurar modo de ejecución
+      modoEjecucion.textContent = infoDb.modo;
+      modoEjecucion.className = `tag is-small ${infoDb.esProduccion ? 'is-success' : 'is-warning'}`;
+      
+      // Mostrar la nota apropiada según el modo
+      if (infoDb.esProduccion) {
+        notaProduccion.style.display = 'block';
+        notaDesarrollo.style.display = 'none';
+      } else {
+        notaProduccion.style.display = 'none';
+        notaDesarrollo.style.display = 'block';
+      }
+      
+      // Cambiar icono del botón
+      btnMostrarRutaDB.innerHTML = `
+        <span class="icon">
+          <i class="fas fa-folder"></i>
+        </span>
+        <span>Ocultar ubicación</span>
+      `;
+      
+      infoBaseDatos.classList.remove('is-hidden');
+    } catch (error) {
+      console.error('Error al obtener información de la base de datos:', error);
+      rutaCompletaDB.textContent = 'Error al obtener la ruta';
+      modoEjecucion.textContent = 'Error';
+      modoEjecucion.className = 'tag is-small is-danger';
+    }
+  } else {
+    // Ocultar información
+    infoBaseDatos.classList.add('is-hidden');
+    
+    // Restaurar icono del botón
+    btnMostrarRutaDB.innerHTML = `
+      <span class="icon">
+        <i class="fas fa-folder-open"></i>
+      </span>
+      <span>Ver ubicación</span>
+    `;
+  }
+});

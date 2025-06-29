@@ -74,6 +74,50 @@
             <button class="button is-danger is-fullwidth menu-btn" id="btnEgreso">Registrar Egreso</button>
             <button class="button is-info is-fullwidth menu-btn" id="btnLista">Ver Lista</button>
             <button class="button is-primary is-fullwidth menu-btn" id="btnGrafico">Ver Gráfico</button>
+            
+            <!-- Información de la base de datos -->
+            <div class="box mt-5 has-background-light">
+              <div class="level">
+                <div class="level-left">
+                  <div class="level-item">
+                    <span class="icon-text">
+                      <span class="icon has-text-info">
+                        <i class="fas fa-database"></i>
+                      </span>
+                      <span class="has-text-weight-bold has-text-info">Base de Datos</span>
+                    </span>
+                  </div>
+                </div>
+                <div class="level-right">
+                  <div class="level-item">
+                    <button class="button is-small is-info is-outlined" id="btnMostrarRutaDB">
+                      <span class="icon">
+                        <i class="fas fa-folder-open"></i>
+                      </span>
+                      <span>Ver ubicación</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div id="infoBaseDatos" class="is-hidden">
+                <hr>
+                <p class="has-text-grey is-size-7">
+                  <strong>Modo:</strong> <span id="modoEjecucion" class="tag is-small">Cargando...</span><br>
+                  <strong>Archivo:</strong> <span id="nombreArchivoDB">finanzas.db</span><br>
+                  <strong>Ubicación:</strong> <span id="rutaCompletaDB">Cargando...</span>
+                </p>
+                <div id="notaProduccion" class="notification is-info is-light mt-3">
+                  <p class="is-size-7">
+                    <strong>💡 Importante:</strong> Al instalar una nueva versión, tus datos se mantendrán automáticamente ya que se almacenan en la carpeta de datos de usuario del sistema.
+                  </p>
+                </div>
+                <div id="notaDesarrollo" class="notification is-warning is-light mt-3" style="display: none;">
+                  <p class="is-size-7">
+                    <strong>⚠️ Modo Desarrollo:</strong> La base de datos está en la carpeta del proyecto. Al compilar para producción, los datos se moverán automáticamente a la carpeta del sistema.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -62,7 +62,14 @@ async function obtenerTipoCambioDolar() {
 }
 
 // Inicializar base de datos
-const dbPath = path.join(app.getPath('userData'), 'finanzas.db');
+// En desarrollo: usar base de datos en la raíz del proyecto
+// En producción: usar la carpeta userData del sistema
+const dbPath = app.isPackaged 
+  ? path.join(app.getPath('userData'), 'finanzas.db')  // Producción
+  : path.join(__dirname, 'finanzas.db');               // Desarrollo
+
+console.log('Modo:', app.isPackaged ? 'Producción' : 'Desarrollo');
+console.log('Ruta de la base de datos:', dbPath);
 const db = new Database(dbPath);
 
 // Crear tabla si no existe
@@ -533,6 +540,18 @@ ipcMain.handle('obtener-tipo-cambio-dolar', async (event) => {
       last_update: 'No disponible'
     };
   }
+});
+
+// Obtener ruta de la base de datos
+ipcMain.handle('obtener-ruta-base-datos', (event) => {
+  return {
+    rutaCompleta: dbPath,
+    carpetaUserData: app.getPath('userData'),
+    carpetaProyecto: __dirname,
+    nombreArchivo: 'finanzas.db',
+    modo: app.isPackaged ? 'Producción' : 'Desarrollo',
+    esProduccion: app.isPackaged
+  };
 });
 
 app.whenReady().then(() => {
