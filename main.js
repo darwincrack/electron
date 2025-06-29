@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const Database = require('better-sqlite3');
+const https = require('https');
 
 // Función para obtener fecha y hora local de Venezuela (UTC-4)
 function obtenerFechaHoraLocal() {
@@ -32,6 +33,32 @@ function obtenerFechaLocal() {
   const dia = String(venezuelaTime.getDate()).padStart(2, '0');
   
   return `${año}-${mes}-${dia}`;
+}
+
+// Función para obtener el tipo de cambio del dólar
+async function obtenerTipoCambioDolar() {
+  return new Promise((resolve, reject) => {
+    const url = 'https://pydolarve.org/api/v2/tipo-cambio?currency=usd';
+    
+    https.get(url, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const resultado = JSON.parse(data);
+          resolve(resultado);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }).on('error', (error) => {
+      reject(error);
+    });
+  });
 }
 
 // Inicializar base de datos
@@ -487,6 +514,24 @@ ipcMain.handle('obtener-reporte-tipo-pago-mes', (event) => {
   } catch (err) {
     console.error('Error al obtener reporte tipo pago del mes:', err);
     throw err;
+  }
+});
+
+// Obtener tipo de cambio del dólar
+ipcMain.handle('obtener-tipo-cambio-dolar', async (event) => {
+  try {
+    const tipoCambio = await obtenerTipoCambioDolar();
+    console.log('Tipo de cambio obtenido:', tipoCambio);
+    return tipoCambio;
+  } catch (err) {
+    console.error('Error al obtener tipo de cambio:', err);
+    // Retornar valor por defecto en caso de error
+    return {
+      price: 0,
+      symbol: '?',
+      title: 'Error al obtener tipo de cambio',
+      last_update: 'No disponible'
+    };
   }
 });
 

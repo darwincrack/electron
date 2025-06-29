@@ -7,6 +7,56 @@ const viewEgresos = document.getElementById('viewEgresos');
 const viewLista = document.getElementById('viewLista');
 const viewGrafico = document.getElementById('viewGrafico');
 
+// Variables globales para el tipo de cambio
+let tipoCambioDolar = { price: 0, symbol: '?', title: 'Cargando...', last_update: '' };
+
+// Función para obtener el tipo de cambio del dólar
+async function obtenerTipoCambio() {
+  try {
+    tipoCambioDolar = await electronAPI.invoke('obtener-tipo-cambio-dolar');
+    actualizarIndicadorDolar();
+  } catch (error) {
+    console.error('Error al obtener tipo de cambio:', error);
+    tipoCambioDolar = { price: 0, symbol: '?', title: 'Error', last_update: 'No disponible' };
+    actualizarIndicadorDolar();
+  }
+}
+
+// Función para actualizar el indicador de dólar en la UI
+function actualizarIndicadorDolar() {
+  const indicadores = document.querySelectorAll('.indicador-dolar');
+  indicadores.forEach(indicador => {
+    if (tipoCambioDolar.price > 0) {
+      indicador.innerHTML = `
+        <span class="icon-text">
+          <span class="icon has-text-success">
+            <i class="fas fa-dollar-sign"></i>
+          </span>
+          <span class="has-text-weight-bold">Bs ${tipoCambioDolar.price.toFixed(2)} ${tipoCambioDolar.symbol}</span>
+        </span>
+      `;
+      indicador.title = `Última actualización: ${tipoCambioDolar.last_update}`;
+    } else {
+      indicador.innerHTML = `
+        <span class="icon-text">
+          <span class="icon has-text-grey">
+            <i class="fas fa-dollar-sign"></i>
+          </span>
+          <span class="has-text-grey">No disponible</span>
+        </span>
+      `;
+    }
+  });
+}
+
+// Función para convertir bolívares a dólares
+function convertirADolares(bolivares) {
+  if (tipoCambioDolar.price > 0) {
+    return (bolivares / tipoCambioDolar.price).toFixed(2);
+  }
+  return '0.00';
+}
+
 // Botones menú principal
 const btnIngreso = document.getElementById('btnIngreso');
 const btnEgreso = document.getElementById('btnEgreso');
@@ -30,7 +80,15 @@ function volverMenu() {
 btnIngreso.addEventListener('click', () => {
   ocultarTodo();
   viewIngresos.innerHTML = `
-    <button class="button is-light volver-btn" id="volverMenu1">← Volver al menú</button>
+    <div class="level mb-4">
+      <div class="level-left">
+        <button class="button is-light volver-btn" id="volverMenu1">← Volver al menú</button>
+      </div>
+      <div class="level-right">
+        <div class="indicador-dolar"></div>
+      </div>
+    </div>
+    
     <div class="columns">
       <!-- Columna izquierda: Formulario -->
       <div class="column is-half">
@@ -77,8 +135,11 @@ btnIngreso.addEventListener('click', () => {
             <button class="button is-small is-success" id="filtroSemanal">Semanal</button>
             <button class="button is-small is-success" id="filtroMensual">Mensual</button>
           </div>
-          <p class="title is-3 has-text-success" id="totalPeriodo">Bs 0.00</p>
-          <p class="subtitle is-6 has-text-grey" id="textoPeriodo">Hoy</p>
+          <div class="has-text-centered">
+            <p class="title is-3 has-text-success" id="totalPeriodo">Bs 0.00</p>
+            <p class="subtitle is-6 has-text-success" id="totalPeriodoDolares">≈ $0.00 USD</p>
+            <p class="subtitle is-6 has-text-grey" id="textoPeriodo">Hoy</p>
+          </div>
         </div>
         
         <!-- Resumen por tipo de pago -->
@@ -89,10 +150,12 @@ btnIngreso.addEventListener('click', () => {
               <div class="column has-text-centered">
                 <p class="heading">Efectivo</p>
                 <p class="title is-6 has-text-success" id="totalEfectivo">Bs 0.00</p>
+                <p class="subtitle is-7 has-text-success" id="totalEfectivoDolares">≈ $0.00</p>
               </div>
               <div class="column has-text-centered">
                 <p class="heading">Pago Móvil</p>
                 <p class="title is-6 has-text-success" id="totalPagoMovil">Bs 0.00</p>
+                <p class="subtitle is-7 has-text-success" id="totalPagoMovilDolares">≈ $0.00</p>
               </div>
             </div>
           </div>
@@ -134,6 +197,9 @@ btnIngreso.addEventListener('click', () => {
   document.getElementById('filtroSemanal').onclick = () => cambiarFiltroIngresos('semanal');
   document.getElementById('filtroMensual').onclick = () => cambiarFiltroIngresos('mensual');
   
+  // Obtener tipo de cambio y actualizar indicador
+  obtenerTipoCambio();
+  
   registrarIngreso();
   cambiarFiltroIngresos('diario'); // Cargar filtro diario por defecto
 });
@@ -142,7 +208,15 @@ btnIngreso.addEventListener('click', () => {
 btnEgreso.addEventListener('click', () => {
   ocultarTodo();
   viewEgresos.innerHTML = `
-    <button class="button is-light volver-btn" id="volverMenu2">← Volver al menú</button>
+    <div class="level mb-4">
+      <div class="level-left">
+        <button class="button is-light volver-btn" id="volverMenu2">← Volver al menú</button>
+      </div>
+      <div class="level-right">
+        <div class="indicador-dolar"></div>
+      </div>
+    </div>
+    
     <div class="columns">
       <!-- Columna izquierda: Formulario -->
       <div class="column is-half">
@@ -177,8 +251,11 @@ btnEgreso.addEventListener('click', () => {
             <button class="button is-small is-danger" id="filtroSemanalEgr">Semanal</button>
             <button class="button is-small is-danger" id="filtroMensualEgr">Mensual</button>
           </div>
-          <p class="title is-3 has-text-danger" id="totalPeriodoEgresos">Bs 0.00</p>
-          <p class="subtitle is-6 has-text-grey" id="textoPeriodoEgresos">Hoy</p>
+          <div class="has-text-centered">
+            <p class="title is-3 has-text-danger" id="totalPeriodoEgresos">Bs 0.00</p>
+            <p class="subtitle is-6 has-text-danger" id="totalPeriodoEgresosDolares">≈ $0.00 USD</p>
+            <p class="subtitle is-6 has-text-grey" id="textoPeriodoEgresos">Hoy</p>
+          </div>
         </div>
         
         <!-- Lista de egresos -->
@@ -213,6 +290,9 @@ btnEgreso.addEventListener('click', () => {
   document.getElementById('filtroSemanalEgr').onclick = () => cambiarFiltroEgresos('semanal');
   document.getElementById('filtroMensualEgr').onclick = () => cambiarFiltroEgresos('mensual');
   
+  // Obtener tipo de cambio y actualizar indicador
+  obtenerTipoCambio();
+  
   registrarEgreso();
   cambiarFiltroEgresos('diario'); // Cargar filtro diario por defecto
 });
@@ -226,7 +306,15 @@ btnLista.addEventListener('click', () => {
   const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
   
   viewLista.innerHTML = `
-    <button class="button is-light volver-btn" id="volverMenu3">← Volver al menú</button>
+    <div class="level mb-4">
+      <div class="level-left">
+        <button class="button is-light volver-btn" id="volverMenu3">← Volver al menú</button>
+      </div>
+      <div class="level-right">
+        <div class="indicador-dolar"></div>
+      </div>
+    </div>
+    
     <div class="box">
       <h2 class="title is-4">Lista de Movimientos</h2>
       
@@ -287,6 +375,9 @@ btnLista.addEventListener('click', () => {
   `;
   viewLista.classList.remove('is-hidden');
   document.getElementById('volverMenu3').onclick = volverMenu;
+  
+  // Obtener tipo de cambio y actualizar indicador
+  obtenerTipoCambio();
   
   // Event listeners
   document.getElementById('aplicarFiltroFecha').onclick = () => {
@@ -358,7 +449,15 @@ btnGrafico.addEventListener('click', () => {
   const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
   
   viewGrafico.innerHTML = `
-    <button class="button is-light volver-btn" id="volverMenu4">← Volver al menú</button>
+    <div class="level mb-4">
+      <div class="level-left">
+        <button class="button is-light volver-btn" id="volverMenu4">← Volver al menú</button>
+      </div>
+      <div class="level-right">
+        <div class="indicador-dolar"></div>
+      </div>
+    </div>
+    
     <div class="box">
       <h2 class="title is-4">Gráfico de Ingresos y Egresos</h2>
       
@@ -393,6 +492,9 @@ btnGrafico.addEventListener('click', () => {
   `;
   viewGrafico.classList.remove('is-hidden');
   document.getElementById('volverMenu4').onclick = volverMenu;
+  
+  // Obtener tipo de cambio y actualizar indicador
+  obtenerTipoCambio();
   
   // Event listener para actualizar gráfico
   document.getElementById('actualizarGrafico').onclick = () => {
@@ -624,12 +726,22 @@ async function actualizarResumenTipoPago() {
       
       const elementoEfectivo = document.getElementById('totalEfectivo');
       const elementoPagoMovil = document.getElementById('totalPagoMovil');
+      const elementoEfectivoDolares = document.getElementById('totalEfectivoDolares');
+      const elementoPagoMovilDolares = document.getElementById('totalPagoMovilDolares');
       
       if (elementoEfectivo) {
         elementoEfectivo.textContent = `Bs ${totalEfectivo.toFixed(2)}`;
       }
       if (elementoPagoMovil) {
         elementoPagoMovil.textContent = `Bs ${totalPagoMovil.toFixed(2)}`;
+      }
+      
+      // Agregar conversiones a dólares
+      if (elementoEfectivoDolares) {
+        elementoEfectivoDolares.textContent = `≈ $${convertirADolares(totalEfectivo)}`;
+      }
+      if (elementoPagoMovilDolares) {
+        elementoPagoMovilDolares.textContent = `≈ $${convertirADolares(totalPagoMovil)}`;
       }
       
     } catch (error) {
@@ -755,12 +867,17 @@ async function cambiarFiltroIngresos(periodo) {
     
     // Actualizar UI
     const totalPeriodo = document.getElementById('totalPeriodo');
+    const totalPeriodoDolares = document.getElementById('totalPeriodoDolares');
     const textoPeriodoEl = document.getElementById('textoPeriodo');
     const tituloTabla = document.getElementById('tituloTabla');
     const tablaIngresosPeriodo = document.getElementById('tablaIngresosPeriodo');
     
     if (totalPeriodo) {
       totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
+    }
+    
+    if (totalPeriodoDolares) {
+      totalPeriodoDolares.textContent = `≈ $${convertirADolares(parseFloat(resumen.total || 0))} USD`;
     }
     
     if (textoPeriodoEl) {
@@ -867,12 +984,17 @@ async function cambiarFiltroEgresos(periodo) {
     
     // Actualizar UI
     const totalPeriodo = document.getElementById('totalPeriodoEgresos');
+    const totalPeriodoDolares = document.getElementById('totalPeriodoEgresosDolares');
     const textoPeriodoEl = document.getElementById('textoPeriodoEgresos');
     const tituloTabla = document.getElementById('tituloTablaEgresos');
     const tablaEgresosPeriodo = document.getElementById('tablaEgresosPeriodo');
     
     if (totalPeriodo) {
       totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
+    }
+    
+    if (totalPeriodoDolares) {
+      totalPeriodoDolares.textContent = `≈ $${convertirADolares(parseFloat(resumen.total || 0))} USD`;
     }
     
     if (textoPeriodoEl) {
@@ -1210,8 +1332,14 @@ async function actualizarSoloTotalIngresos() {
     }
     
     const totalPeriodo = document.getElementById('totalPeriodo');
+    const totalPeriodoDolares = document.getElementById('totalPeriodoDolares');
+    
     if (totalPeriodo) {
       totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
+    }
+    
+    if (totalPeriodoDolares) {
+      totalPeriodoDolares.textContent = `≈ $${convertirADolares(parseFloat(resumen.total || 0))} USD`;
     }
     
     // Actualizar resumen por tipo de pago
@@ -1238,8 +1366,14 @@ async function actualizarSoloTotalEgresos() {
     }
     
     const totalPeriodo = document.getElementById('totalPeriodoEgresos');
+    const totalPeriodoDolares = document.getElementById('totalPeriodoEgresosDolares');
+    
     if (totalPeriodo) {
       totalPeriodo.textContent = `Bs ${parseFloat(resumen.total || 0).toFixed(2)}`;
+    }
+    
+    if (totalPeriodoDolares) {
+      totalPeriodoDolares.textContent = `≈ $${convertirADolares(parseFloat(resumen.total || 0))} USD`;
     }
   }
 }
