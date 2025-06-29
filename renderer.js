@@ -677,10 +677,16 @@ async function cargarListaMovimientos(tipo = 'ingreso', tipoPagoFiltro = 'todos'
       });
       
       const total = movimientos.reduce((sum, mov) => sum + mov.cantidad, 0);
-      totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: Bs Bs ${total.toFixed(2)}`;
+      totalLista.innerHTML = `
+        <span class="has-text-weight-bold">Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: Bs ${total.toFixed(2)}</span><br>
+        <span class="has-text-grey">≈ $${convertirADolares(total)} USD</span>
+      `;
     } else {
       listaMovimientos.innerHTML = `<tr><td colspan="5" class="has-text-grey">No hay ${tipo}s en este período</td></tr>`;
-      totalLista.textContent = 'Total: Bs 0.00';
+      totalLista.innerHTML = `
+        <span class="has-text-weight-bold">Total: Bs 0.00</span><br>
+        <span class="has-text-grey">≈ $0.00 USD</span>
+      `;
     }
   } catch (error) {
     console.error('Error al cargar lista de movimientos:', error);
@@ -1397,7 +1403,10 @@ async function actualizarSoloTotalLista(tipo) {
   
   const totalLista = document.getElementById('totalLista');
   if (totalLista) {
-    totalLista.textContent = `Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: Bs ${total.toFixed(2)}`;
+    totalLista.innerHTML = `
+      <span class="has-text-weight-bold">Total ${tipo === 'ingreso' ? 'Ingresos' : 'Egresos'}: Bs ${total.toFixed(2)}</span><br>
+      <span class="has-text-grey">≈ $${convertirADolares(total)} USD</span>
+    `;
   }
 }
 
